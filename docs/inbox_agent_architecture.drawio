@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1300" math="0" shadow="1">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- TITLE -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="title" value="AI-Powered Inbox Management — Multi-Agent System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#1F3864;" vertex="1" parent="1">
+      <mxGeometry x="200" y="20" width="1500" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- EMAIL INPUT LAYER -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="input_bg" value="📨 EMAIL INPUT SOURCES" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="200" y="100" width="1500" height="110" as="geometry" />
+    </mxCell>
+
+    <mxCell id="gmail" value="📧 Gmail" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="240" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="outlook" value="📧 Outlook / O365" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="400" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="zendesk" value="🎫 Zendesk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="560" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="freshdesk" value="🎫 Freshdesk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="720" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="servicenow" value="🎫 ServiceNow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="880" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="api_input" value="🔌 Webhook / API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1040" y="140" width="130" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ORCHESTRATOR AGENT -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="orch_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F3864;strokeColor=#1F3864;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="550" y="260" width="800" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="orch" value="🧠 ORCHESTRATOR AGENT&#xa;(LangGraph StateGraph — Master Controller)&#xa;Tools: State Machine · Task Dispatcher · Memory Store · Error Handler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F3864;strokeColor=#FFFFFF;fontColor=#FFFFFF;fontStyle=1;fontSize=12;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="555" y="265" width="790" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- Arrow from inputs to orchestrator -->
+    <mxCell id="e_in1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#1F3864;strokeWidth=2;" edge="1" source="input_bg" target="orch" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- AGENT LAYER — ROW 1 (E1, E2, E3, E4) -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <!-- INTAKE AGENT E1 -->
+    <mxCell id="a1" value="📥 INTAKE AGENT&#xa;Epic E1&#xa;&#xa;• Poll email sources&#xa;• Extract metadata&#xa;• Auto-ACK reply&#xa;• Store attachments&#xa;&#xa;Framework: LangGraph Node&#xa;MCP: gmail-mcp · outlook-mcp&#xa;     zendesk-mcp · filesystem-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#2E75B6;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="200" y="430" width="230" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- CLASSIFICATION AGENT E2 -->
+    <mxCell id="a2" value="🏷️ CLASSIFICATION AGENT&#xa;Epic E2&#xa;&#xa;• NLP email classification&#xa;• Priority scoring&#xa;• Sentiment detection&#xa;• Confidence scoring&#xa;&#xa;Framework: LangGraph Node&#xa;LLM: Claude (claude-sonnet)&#xa;MCP: anthropic-claude-mcp&#xa;     freshdesk-mcp · postgres-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#375623;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="460" y="430" width="230" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- ROUTING AGENT E3 -->
+    <mxCell id="a3" value="🔀 ROUTING AGENT&#xa;Epic E3&#xa;&#xa;• Rule-based + AI routing&#xa;• Team/SME assignment&#xa;• Fallback queue mgmt&#xa;• Routing audit log&#xa;&#xa;Framework: LangGraph Node&#xa;LLM: Claude (decision)&#xa;MCP: servicenow-mcp · jira-mcp&#xa;     freshdesk-mcp · postgres-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="720" y="430" width="230" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- RESPONSE AGENT E4 -->
+    <mxCell id="a4" value="✍️ RESPONSE AGENT&#xa;Epic E4&#xa;&#xa;• AI draft generation&#xa;• Tone + compliance check&#xa;• PII / GDPR masking&#xa;• Human-in-loop review&#xa;&#xa;Framework: LangGraph Node&#xa;LLM: Claude (generation)&#xa;MCP: anthropic-claude-mcp&#xa;     gmail-mcp · crm-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4d6;strokeColor=#843C0C;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="980" y="430" width="230" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- SLA AGENT E5 -->
+    <mxCell id="a5" value="⏱️ SLA AGENT&#xa;Epic E5&#xa;&#xa;• SLA timer tracking&#xa;• 80% threshold alerts&#xa;• Auto-escalation trigger&#xa;• Aging dashboard feed&#xa;&#xa;Framework: LangGraph Node&#xa;     + Cron Scheduler&#xa;MCP: postgres-mcp&#xa;     slack-mcp · gmail-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ead1dc;strokeColor=#4B0082;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="1240" y="430" width="230" height="200" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- AGENT LAYER — ROW 2 (E6, E7) -->
+    <!-- ═══════════════════════════════════════════ -->
+
+    <!-- AUDIT AGENT E6 -->
+    <mxCell id="a6" value="📋 AUDIT &amp; COMPLIANCE AGENT&#xa;Epic E6&#xa;&#xa;• Auto-log all actions + emails&#xa;• Attachment archival&#xa;• Tamper-proof audit trail&#xa;• HIPAA / GDPR enforcement&#xa;• Export for audit reviews&#xa;&#xa;Framework: LangGraph Node&#xa;MCP: postgres-mcp&#xa;     salesforce-mcp · filesystem-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#0D5257;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="460" y="690" width="280" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- ANALYTICS AGENT E7 -->
+    <mxCell id="a7" value="📊 ANALYTICS AGENT&#xa;Epic E7&#xa;&#xa;• Aggregate KPIs in real-time&#xa;• Surface automation opportunities&#xa;• Repetitive query pattern mining&#xa;• Weekly insight report generation&#xa;• Cost per email tracking&#xa;&#xa;Framework: LangGraph Node&#xa;LLM: Claude (pattern analysis)&#xa;MCP: postgres-mcp · slack-mcp&#xa;     google-sheets-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4e6f7;strokeColor=#6B238E;fontStyle=0;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="800" y="690" width="280" height="220" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- SHARED MEMORY / STATE STORE -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="memstore" value="🗄️ SHARED STATE STORE&#xa;LangGraph Checkpointer + PostgreSQL&#xa;email_id · classification · routing_decision · sla_deadline · audit_log · agent_status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=10;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="200" y="700" width="240" height="100" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- OUTPUT LAYER -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="output_bg" value="📤 OUTPUT DESTINATIONS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#375623;fontStyle=1;fontSize=11;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="200" y="970" width="1300" height="110" as="geometry" />
+    </mxCell>
+
+    <mxCell id="o1" value="📧 Email Reply&#xa;(Gmail / Outlook)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="230" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="o2" value="🎫 Ticket Updated&#xa;(ServiceNow / Jira)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="410" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="o3" value="🔔 Slack Alert&#xa;(Escalation / SLA)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="590" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="o4" value="📊 KPI Dashboard&#xa;(Real-time)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="770" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="o5" value="📋 Audit Trail&#xa;(CRM / DB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="950" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="o6" value="📈 Weekly Reports&#xa;(Google Sheets)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#375623;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="1130" y="1010" width="150" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- MCP TOOLS LAYER (right side) -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="mcp_bg" value="🔌 MCP TOOL SERVERS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="1530" y="430" width="200" height="560" as="geometry" />
+    </mxCell>
+
+    <mxCell id="m1" value="gmail-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="470" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m2" value="outlook-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="510" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m3" value="zendesk-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="550" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m4" value="anthropic-claude-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="590" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m5" value="freshdesk-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="630" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m6" value="servicenow-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="670" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m7" value="jira-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="710" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m8" value="postgres-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="750" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m9" value="slack-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="790" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m10" value="salesforce-mcp / hubspot-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="830" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m11" value="filesystem-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="870" width="170" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="m12" value="google-sheets-mcp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1545" y="910" width="170" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- ORCHESTRATOR → AGENTS ARROWS -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="oa1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#2E75B6;strokeWidth=2;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="orch" target="a1" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="oa2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=2;exitX=0.35;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="orch" target="a2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="oa3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#d6b656;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="orch" target="a3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="oa4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#843C0C;strokeWidth=2;exitX=0.65;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="orch" target="a4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="oa5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#4B0082;strokeWidth=2;exitX=0.85;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="orch" target="a5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- AGENTS → AUDIT + ANALYTICS -->
+    <mxCell id="a2a6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#0D5257;strokeWidth=1;dashed=1;" edge="1" source="a2" target="a6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a3a6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#0D5257;strokeWidth=1;dashed=1;" edge="1" source="a3" target="a6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a4a6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#0D5257;strokeWidth=1;dashed=1;" edge="1" source="a4" target="a6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a6a7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#6B238E;strokeWidth=2;" edge="1" source="a6" target="a7" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- MEMORY STORE connections -->
+    <mxCell id="mem1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#666666;strokeWidth=1;dashed=1;" edge="1" source="orch" target="memstore" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- AGENTS → OUTPUTS -->
+    <mxCell id="ao1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" source="a4" target="o1" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ao2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;" edge="1" source="a3" target="o2" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ao3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;" edge="1" source="a5" target="o3" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ao4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;" edge="1" source="a7" target="o4" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ao5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;" edge="1" source="a6" target="o5" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ao6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#375623;strokeWidth=1;" edge="1" source="a7" target="o6" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!-- LEGEND -->
+    <!-- ═══════════════════════════════════════════ -->
+    <mxCell id="legend_bg" value="LEGEND" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=10;verticalAlign=top;arcSize=5;" vertex="1" parent="1">
+      <mxGeometry x="200" y="840" width="230" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="l1" value="── Orchestrator → Agent call" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="210" y="865" width="210" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l2" value="- - Agent → Audit log (async)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="210" y="885" width="210" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l3" value="── Agent → Output destination" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="210" y="905" width="210" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="l4" value="🔌 MCP Tools (right panel)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="210" y="925" width="210" height="20" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>

@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+pydantic
+langgraph
+langchain
+redis
+celery
+psycopg2-binary
+asyncpg
+pytz
