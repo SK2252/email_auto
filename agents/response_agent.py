@@ -211,7 +211,7 @@ def _generate_free_draft(state: AgentState) -> Optional[str]:
                 case_reference=case_ref,
                 email_text=email_txt,
                 customer_context_json=json.dumps(context, default=str),
-                thread_json=json.dumps(thread[-5:], default=str),
+                thread_json=json.dumps([t for i, t in enumerate(thread) if i < 5], default=str),
             )},
         ],
         temperature=0.4,
@@ -259,7 +259,7 @@ async def response_node(state: AgentState) -> Dict[str, Any]:
       - On human-review path: draft, pii_scan_result, current_step='analyst_queue'
     """
     parsed   = state.get("parsed_email") or {}
-    email_id = parsed.get("email_id", state.get("email_id", "unknown"))
+    email_id: str = parsed.get("email_id") or state.get("email_id") or "unknown"
     category = (state.get("classification_result") or {}).get("category", "inquiry")
     case_ref = state.get("case_reference", "")
 

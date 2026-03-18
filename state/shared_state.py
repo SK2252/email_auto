@@ -8,6 +8,33 @@ import operator
 from datetime import datetime
 
 
+# Reducer function for merging dictionaries from concurrent nodes
+def merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge two dictionaries, with b's values taking precedence."""
+    result = a.copy() if a else {}
+    if b:
+        result.update(b)
+    return result
+
+
+# Reducer function for datetime — prefer first non-None value
+def merge_datetime(a: Optional[datetime], b: Optional[datetime]) -> Optional[datetime]:
+    """Merge two datetime values — prefer non-None first value."""
+    return a if a is not None else b
+
+
+# Reducer function for booleans — True takes precedence (logical OR)
+def merge_bool(a: bool, b: bool) -> bool:
+    """Merge two boolean values — True takes precedence."""
+    return a or b
+
+
+# Reducer function for optional strings — prefer first non-None value
+def merge_str(a: Optional[str], b: Optional[str]) -> Optional[str]:
+    """Merge two string values — prefer first non-None."""
+    return a if a is not None else b
+
+
 # ---------------------------------------------------------------------------
 # Email schema: canonical format after normalization by AG-01
 # ---------------------------------------------------------------------------
@@ -40,8 +67,8 @@ class AgentState(TypedDict, total=False):
     # AG-00 — Global / Orchestrator
     # -----------------------------------------------------------------------
     email_id:           str                    # UUID of the email being processed
-    current_step:       str                    # e.g. 'intake', 'classification', 'routing'
-    agent_statuses:     Dict[str, str]         # {'AG-01': 'completed', 'AG-02': 'running', ...}
+    current_step:       Annotated[str, merge_str]  # FIX: concurrent nodes write this — merge_str keeps first non-None
+    agent_statuses:     Annotated[Dict[str, str], merge_dicts]  # merge dicts from concurrent nodes
     retry_count:        int                    # global retry counter
     global_sla_deadline: Optional[datetime]   # computed after classification
 
@@ -90,11 +117,11 @@ class AgentState(TypedDict, total=False):
     # -----------------------------------------------------------------------
     # AG-05 — SLA
     # -----------------------------------------------------------------------
-    sla_deadline:       Optional[datetime]   # hard deadline for resolution
-    sla_timer_started:  bool                 # True once monitoring begins (ST-E1-05)
+    sla_deadline:       Annotated[Optional[datetime], merge_datetime]  # hard deadline for resolution (set by classification or sla node)
+    sla_timer_started:  Annotated[bool, merge_bool]              # True once monitoring begins (ST-E1-05)
     elapsed_time:       float                # seconds elapsed since intake
-    alert_80_sent:      bool                 # True once 80% threshold Slack alert sent
-    escalated:          bool                 # True once SLA breached → escalated
+    alert_80_sent:      Annotated[bool, merge_bool]              # True once 80% threshold Slack alert sent
+    escalated:          Annotated[bool, merge_bool]              # True once SLA breached → escalated
     current_assignee:   Optional[str]        # current owner of the ticket
 
     # -----------------------------------------------------------------------
@@ -115,5 +142,5 @@ class AgentState(TypedDict, total=False):
     # -----------------------------------------------------------------------
     # Cross-cutting
     # -----------------------------------------------------------------------
-    error:              Optional[str]    # last error message, cleared on success
+    error:              Annotated[Optional[str], merge_str]    # last error message, cleared on success
     case_reference:     Optional[str]   # CASE-{YYYYMMDD}-{uuid[:6]}

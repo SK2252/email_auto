@@ -1,0 +1,7 @@
+-r base.txt
+
+# Circuit Breaker
+pybreaker>=1.0.1
+
+# APM
+sentry-sdk[fastapi]>=1.39.1

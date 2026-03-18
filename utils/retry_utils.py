@@ -41,7 +41,7 @@ def retry_with_backoff(
         @retry_with_backoff(retries=3, on_exhaust="dlq")
         def risky_api_call(): ...
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             last_exc: Exception | None = None
@@ -79,13 +79,14 @@ def retry_with_backoff(
             if on_exhaust == "dlq":
                 raise DeadLetterError(
                     f"{func.__qualname__} failed after {retries} retries: {last_exc}"
-                ) from last_exc
+                ) from (last_exc if last_exc is not None else Exception())
             elif on_exhaust == "return_none":
                 return None
             else:
-                raise last_exc  # type: ignore[misc]
+                raise last_exc if last_exc is not None else Exception("Retries exhausted without exception")
 
-        return wrapper
+        from typing import cast
+        return cast(Callable[..., Any], wrapper)
     return decorator
 
 
@@ -99,7 +100,7 @@ def send_to_dead_letter_queue(payload: dict, reason: str) -> None:
         json.dumps({
             "event": "dead_letter_queued",
             "reason": reason,
-            "payload_preview": {k: str(v)[:80] for k, v in payload.items()},
+            "payload_preview": {k: str(v)[:80] for k, v in payload.items()},  # type: ignore
         })
     )
     # TODO Sprint 1: persist to dead_letter table; POST to SLACK_WEBHOOK_URL

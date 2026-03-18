@@ -36,6 +36,47 @@ _TENANT_DOMAIN_MAP: Dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# DEFAULT_DOMAIN_CONFIG — safe fallback for unknown / unregistered tenants
+# CRITICAL RULES (LOCKED — do not change without explicit approval):
+#   auto_send_allowed = False ALWAYS for unknown domains
+#   All unmatched types route to Team Lead queue
+#   SLA = standard 4h / 8h / 24h / 48h buckets
+# ---------------------------------------------------------------------------
+DEFAULT_DOMAIN_CONFIG: Dict[str, Any] = {
+    "domain_id":   "default",
+    "taxonomy": [
+        "billing", "complaint", "query",
+        "info_request", "other",
+    ],
+    "sla_rules": {
+        "high":     {"bucket_seconds": 14400,  "escalate_at": 0.8},  # 4h
+        "medium":   {"bucket_seconds": 28800,  "escalate_at": 0.8},  # 8h
+        "low":      {"bucket_seconds": 86400,  "escalate_at": 0.8},  # 24h
+        "very_low": {"bucket_seconds": 172800, "escalate_at": 0.8},  # 48h
+    },
+    "routing_teams": {
+        "billing":      "Finance Ops",
+        "complaint":    "Customer Service Lead",
+        "query":        "Customer Service",
+        "info_request": "Customer Service",
+        "other":        "Team Lead",  # always human
+    },
+    "compliance": {
+        "standards": ["GDPR"],
+        "pii_extra":  [],
+    },
+    "auto_send_allowed": False,   # SAFE DEFAULT — never auto-send to unknown tenant
+    "auto_send_types":   [],
+    "response_tone": "professional, helpful, neutral",
+}
+
+
+def get_default_domain_config() -> Dict[str, Any]:
+    """Return a deep-copy of the DEFAULT_DOMAIN_CONFIG. Thread-safe."""
+    return copy.deepcopy(DEFAULT_DOMAIN_CONFIG)
+
+
 def get_domain_config(
     tenant_id: str,
     config_overrides: Optional[Dict[str, Any]] = None,
@@ -49,29 +90,36 @@ def get_domain_config(
                           Deep-merged on top of the base domain config.
 
     Returns:
-        Full domain config dict ready to be stored in AgentState["domain_config"].
-
-    Raises:
-        ValueError: if no mapping exists for tenant_id AND no default is set.
+        Full domain config dict. Falls back to DEFAULT_DOMAIN_CONFIG for
+        unknown tenants — NEVER raises for unknown tenant_id.
     """
     domain_id = _TENANT_DOMAIN_MAP.get(tenant_id)
 
     if not domain_id:
         logger.warning(
             json.dumps({
-                "event":     "domain_lookup_fallback",
+                "event":     "unknown_tenant_fallback",
                 "tenant_id": tenant_id,
-                "fallback":  "it_support",
+                "action":    "returning DEFAULT_DOMAIN_CONFIG — safe fallback",
+                "auto_send_allowed": False,
+                "routed_to": "Team Lead queue",
             })
         )
-        domain_id = "it_support"   # safe fallback
+        config = get_default_domain_config()
+        if config_overrides:
+            config = _deep_merge(config, config_overrides)
+        return config
 
     base_config = DOMAIN_REGISTRY.get(domain_id)
     if not base_config:
-        raise ValueError(
-            f"Domain '{domain_id}' not found in DOMAIN_REGISTRY. "
-            f"Available: {list(DOMAIN_REGISTRY.keys())}"
+        logger.error(
+            json.dumps({
+                "event":     "domain_registry_miss",
+                "domain_id": domain_id,
+                "fallback":  "DEFAULT_DOMAIN_CONFIG",
+            })
         )
+        return get_default_domain_config()
 
     # Deep-copy so callers can't mutate the shared registry
     config = copy.deepcopy(base_config)
@@ -118,18 +166,21 @@ def build_routing_matrix_json(domain_config: Dict[str, Any]) -> str:
 
 
 def is_auto_send_permitted(
-    domain_config: Dict[str, Any],
+    domain_config: Optional[Dict[str, Any]],
     category: str,
 ) -> bool:
     """
     Returns True only when BOTH conditions are met:
-      1. domain_config["compliance"]["auto_send_allowed"] is True
+      1. domain_config["auto_send_allowed"] is True
       2. category is in domain_config["auto_send_types"]
 
+    SAFE DEFAULT: returns False for None/unknown domain.
     Healthcare and Legal always return False regardless of category.
     """
-    compliance   = domain_config.get("compliance", {})
-    allowed      = compliance.get("auto_send_allowed", False)
+    if not domain_config:
+        return False   # SAFE DEFAULT — never auto-send for unknown domains
+
+    allowed      = domain_config.get("auto_send_allowed", False)
     allowed_cats = set(domain_config.get("auto_send_types", []))
 
     if not allowed:

@@ -3,13 +3,21 @@ main.py — Primary Entry Point for the AI Inbox Management System
 Phase 7: Polling Loop + Celery Beat Configuration
 """
 
+import os
+import sys
+
+# PRIORITY: Ensure enterprise-mcp-server is the primary source for 'app' imports
+mcp_path = os.path.join(os.path.dirname(__file__), "enterprise-mcp-server")
+if mcp_path not in sys.path:
+    sys.path.insert(0, mcp_path)
+
 import asyncio
 import logging
-import sys
 from celery import Celery
 from config.settings import settings
 from agents.intake_agent import poll_and_ingest
 from agents.sla_agent import SLA_CELERY_BEAT_SCHEDULE
+from utils.gmail_label_manager import bootstrap_labels
 
 # Configure Logging
 logging.basicConfig(
@@ -38,6 +46,12 @@ celery_app.conf.update(
 
 # Import tasks to ensure registration
 import agents.sla_agent  # noqa
+
+# Import server-side shared tasks for worker registration
+try:
+    import app.domains.email_ai.workers.auto_organize as auto_org
+except ImportError:
+    logger.warning("Could not register auto_organize tasks - check server path in sys.path")
 
 # ---------------------------------------------------------------------------
 # Polling Loop (Intake)
@@ -68,6 +82,10 @@ async def main():
     # Note: In production, Celery worker and beat would run as separate processes.
     # This main.py script runs the persistent intake polling loop.
     
+    # --- Phase 6: Bootstrap Gmail Labels ---
+    await bootstrap_labels()
+    logger.info("Gmail labels ready (28 total).")
+
     try:
         await polling_loop()
     except KeyboardInterrupt:

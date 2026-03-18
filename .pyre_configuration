@@ -1,0 +1,10 @@
+{
+  "source_directories": [
+    "."
+  ],
+  "exclude": [
+    ".venv",
+    "**/.venv",
+    "**/__pycache__"
+  ]
+}

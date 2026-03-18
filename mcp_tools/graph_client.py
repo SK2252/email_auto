@@ -17,7 +17,7 @@ class GraphClient:
         logger.info(json.dumps({"event": "graph_client_initialized", "status": "success"}))
 
     @retry_with_backoff(retries=3)
-    def poll_delta(self, delta_link: str = None):
+    def poll_delta(self, delta_link: str | None = None):
         """
         Polls for changes using the delta link.
         """

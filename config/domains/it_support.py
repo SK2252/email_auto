@@ -1,12 +1,20 @@
 """
 config/domains/it_support.py — Domain Configuration: IT Support
 ISO27001 / SOC2. Auto-send allowed for simple ticket types.
+
+FIX: Added universal_taxonomy — when this domain is used as the DEFAULT
+inbox (receives ALL email types, not just IT), the LLM needs the full
+category set to correctly classify billing, HR, complaints etc.
+Without this, non-IT emails fall through to general_query incorrectly.
 """
 
 DOMAIN_CONFIG = {
     "domain_id":    "it_support",
     "display_name": "IT Support",
 
+    # -----------------------------------------------------------------------
+    # IT-specific taxonomy — used when domain is explicitly set to it_support
+    # -----------------------------------------------------------------------
     "taxonomy": [
         "password_reset",
         "hardware_issue",
@@ -16,6 +24,30 @@ DOMAIN_CONFIG = {
         "onboarding",
         "security_incident",
         "general_query",
+    ],
+
+    # -----------------------------------------------------------------------
+    # Universal taxonomy — used when this domain acts as the DEFAULT inbox
+    # Covers ALL email types so billing/HR/complaint are never misclassified
+    # -----------------------------------------------------------------------
+    "universal_taxonomy": [
+        # IT-specific
+        "password_reset",
+        "hardware_issue",
+        "software_bug",
+        "access_request",
+        "network_issue",
+        "onboarding",
+        "security_incident",
+        # Universal cross-domain
+        "billing",          # invoices, charges, refunds, payments
+        "hr",               # leave, payroll, grievance, harassment
+        "complaint",        # angry customer demanding action
+        "query",            # general business questions
+        "info_request",     # documentation, reports, data requests
+        "escalation",       # CEO/SLA breach/legal threat
+        "general_query",    # vague/short emails, greetings
+        "other",            # non-business content
     ],
 
     "sla_rules": {
@@ -49,6 +81,14 @@ DOMAIN_CONFIG = {
         "onboarding":        "IT Onboarding",
         "security_incident": "Security Team",
         "general_query":     "Tier 1 Support",
+        # Universal fallbacks
+        "billing":           "Tier 1 Support",
+        "hr":                "Tier 1 Support",
+        "complaint":         "Tier 1 Support",
+        "query":             "Tier 1 Support",
+        "info_request":      "Tier 1 Support",
+        "escalation":        "Tier 2 Engineering",
+        "other":             "Tier 1 Support",
     },
 
     "compliance": {

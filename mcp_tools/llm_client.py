@@ -43,7 +43,7 @@ class _RateLimiter:
         if len(self._window) >= self._rpm:
             sleep_for = 60 - (now - self._window[0]) + 0.1
             logger.warning(
-                json.dumps({"event": "rate_limit_wait", "sleep_seconds": round(sleep_for, 1)})
+                json.dumps({"event": "rate_limit_wait", "sleep_seconds": float(int(sleep_for * 10) / 10.0)})
             )
             time.sleep(max(sleep_for, 0))
         self._window.append(time.monotonic())
@@ -193,3 +193,4 @@ def call_llm(
 
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")
+

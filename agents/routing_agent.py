@@ -143,32 +143,60 @@ def _rule_based_route(
     domain_config: Optional[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
     """
-    Deterministic rule lookup. No retry. Returns None if no rule matches.
-    Team name resolved from domain_config['routing_rules'][category].
+    Deterministic rule lookup. Returns None if category not in static matrix
+    (so caller can try LLM fallback next).
+    Team name resolved from domain_config['routing_teams'/'routing_rules'].
+    For known categories on unknown domains, _resolve_team returns 'Team Lead'.
     """
     rule = _RULE_MATRIX.get(category)
     if not rule:
-        return None
+        return None  # Not in static matrix — let LLM try
 
-    team = _resolve_team(category, domain_config)
+    team, reason = _resolve_team(category, domain_config)
     return {
-        "team":              team,
-        "ticket_system":     rule["ticket"],   # metadata only in Phase 1
+        "team":               team,
+        "ticket_system":      rule["ticket"],
         "team_lead_required": rule["team_lead"],
-        "source":            "rule_matrix",
+        "source":             "rule_matrix",
+        "reason":             reason,
     }
 
 
-def _resolve_team(category: str, domain_config: Optional[Dict[str, Any]]) -> str:
-    """Resolve team name from domain_config['routing_rules']. Falls back gracefully."""
+def _resolve_team(
+    category: str,
+    domain_config: Optional[Dict[str, Any]],
+) -> tuple[str, str]:
+    """
+    Resolve team name from domain_config['routing_teams'].
+    Falls back to 'Team Lead' for unknown email type OR unknown domain.
+    Returns (team, reason).
+    """
     if domain_config:
+        # Primary: look in routing_teams dict (DEFAULT_DOMAIN_CONFIG format)
+        routing_teams = domain_config.get("routing_teams", {})
+        if isinstance(routing_teams, dict):
+            team = routing_teams.get(category)
+            if team:
+                return team, f"Matched routing_teams['{category}']"
+        # Secondary: look in routing_rules dict (legacy domain format)
         routing_rules = domain_config.get("routing_rules", {})
-        if category in routing_rules:
-            return routing_rules[category]
-        teams = domain_config.get("routing_teams", [])
-        if teams:
-            return teams[0]
-    return "General Ops"
+        if isinstance(routing_rules, dict):
+            team = routing_rules.get(category)
+            if team:
+                return team, f"Matched routing_rules['{category}']"
+
+    # Unknown email type OR unknown domain → always Team Lead
+    reason = (
+        f"Unknown email type '{category}' "
+        f"or unknown domain — escalated to Team Lead"
+    )
+    logger.warning(json.dumps({
+        "event":    "routing_team_lead_fallback",
+        "category": category,
+        "domain_id": (domain_config or {}).get("domain_id", "unknown"),
+        "reason":   reason,
+    }))
+    return "Team Lead", reason
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +231,7 @@ def _llm_fallback_route(
                 provider=LLMProvider.GEMINI,
                 messages=[
                     {"role": "system", "content": sys_prompt},
-                    {"role": "user",   "content": usr_prompt.format(
+                    {"role": "user",   "content": str(usr_prompt).format(
                         classification_json=classification_json
                     )},
                 ],
@@ -218,7 +246,7 @@ def _llm_fallback_route(
 
             # Validate team name against domain config
             if domain_config:
-                valid_teams = domain_config.get("routing_teams", [])
+                valid_teams = domain_config.get("routing_teams", [])  # type: ignore
                 if valid_teams and team not in valid_teams:
                     logger.warning(json.dumps({
                         "event":    "llm_routing_invalid_team",
@@ -277,14 +305,18 @@ def _move_to_gmail_folder(email_id: str, team: str) -> bool:
     """
     try:
         import asyncio
-        from app.domains.email_ai import tools_email as email_tools  # existing mcp.py module
+        from app.domains.email_ai import tools_email as email_tools
         folder = _team_to_gmail_folder(team)
-        asyncio.get_event_loop().run_until_complete(
-            email_tools.gmail_move_to_folder(
-                message_id=email_id,
-                folder_name=folder,
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(
+                email_tools.gmail_move_to_folder(
+                    message_ids=[email_id],
+                    folder_label=folder,
+                )
             )
-        )
+        finally:
+            loop.close()
         logger.info(json.dumps({
             "event":    "gmail_move_to_folder",
             "folder":   folder,
@@ -376,7 +408,11 @@ def _write_routing_to_db(
             logger.error(json.dumps({"event": "db_routing_update_failed", "error": str(exc), "email_id": email_id}))
 
     import asyncio
-    asyncio.run(_async_update_email())
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_async_update_email())
+    finally:
+        loop.close()
 
 
 # ---------------------------------------------------------------------------
@@ -402,7 +438,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     case_reference = state.get("case_reference", "")
     tenant_id      = state.get("tenant_id", "default")
 
-    email_id = parsed.get("email_id", state.get("email_id", "unknown"))
+    email_id: str = parsed.get("email_id") or state.get("email_id") or "unknown"
     category = classification.get("category", "")
     priority = classification.get("priority", "medium")
 
@@ -466,7 +502,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     # =========================================================================
 
     # 3.1 Move email to team folder in Gmail (via existing mcp.py)
-    _move_to_gmail_folder(email_id=email_id, team=team)
+    _move_to_gmail_folder(email_id=email_id, team=str(team))
 
     # TODO: Phase 2 — servicenow-mcp: _create_servicenow_ticket(...)
     # TODO: Phase 2 — jira-mcp:       _create_jira_ticket(...)
@@ -499,7 +535,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     if elapsed > settings.ROUTING_TIMEOUT_SECONDS:
         logger.warning(json.dumps({
             "event":           "routing_timeout_exceeded",
-            "elapsed_seconds": round(elapsed, 2),
+            "elapsed_seconds": float(int(elapsed * 100) / 100.0),
             "limit_seconds":   settings.ROUTING_TIMEOUT_SECONDS,
             "email_id":        email_id,
         }))
@@ -517,7 +553,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
             "assignment_id":   assignment_id,
             "routing_reason":  routing_reason,
             "source":          route_info.get("source"),
-            "elapsed_seconds": round(elapsed, 2),
+            "elapsed_seconds": float(int(elapsed * 100) / 100.0),
             "tenant_id":       tenant_id,
         },
     }
@@ -526,7 +562,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
         "event":    "routing_completed",
         "email_id": email_id,
         "team":     team,
-        "elapsed_s": round(elapsed, 2),
+        "elapsed_s": float(int(elapsed * 100) / 100.0),
     }))
 
     return {

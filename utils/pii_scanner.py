@@ -120,7 +120,7 @@ class PIIScanner:
         Uses domain-aware prompt when domain_config is provided.
         Returns (pii_detected: bool, reason: str).
         """
-        truncated = text[:2000]
+        truncated = text[:2000]  # type: ignore
 
         # Build domain-aware prompts
         sys_p, usr_p = build_pii_scan_prompts(domain_config)
@@ -156,3 +156,4 @@ class PIIScanner:
             })
         )
         # TODO: POST to settings.SLACK_WEBHOOK_URL with channel override
+

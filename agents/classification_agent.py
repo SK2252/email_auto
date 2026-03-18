@@ -10,6 +10,7 @@ KEY DESIGN DECISIONS:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
@@ -45,6 +46,7 @@ _SLA_MAP_LEGACY = {
 @retry_with_backoff(retries=3, on_exhaust="dlq")
 def _classify_and_score(
     email_text: str,
+    email_subject: str = "",
     domain_config: dict | None = None,
 ) -> Dict[str, Any]:
     """
@@ -53,16 +55,19 @@ def _classify_and_score(
     Batching into one call conserves the 30 rpm / 14,400 rpd free quota.
     """
     if domain_config:
-        sys_prompt, usr_prompt = build_classification_prompts(domain_config)
+        sys_prompt, usr_prompt_template = build_classification_prompts(domain_config)
     else:
         sys_prompt = CLASSIFICATION_SYSTEM_PROMPT
-        usr_prompt = CLASSIFICATION_USER_PROMPT
+        usr_prompt_template = CLASSIFICATION_USER_PROMPT
+
+    # Format user prompt with subject and body
+    usr_prompt = usr_prompt_template.format(email_subject=email_subject, email_text=email_text)
 
     raw = call_llm(
         provider=LLMProvider.GROQ,
         messages=[
             {"role": "system", "content": sys_prompt},
-            {"role": "user",   "content": usr_prompt.format(email_text=email_text)},
+            {"role": "user",   "content": usr_prompt},
         ],
         temperature=0.1,
         max_tokens=256,
@@ -129,12 +134,14 @@ def _send_escalation_alert(email_id: str, sentiment: float, sender: str) -> None
         logger.warning(json.dumps({"event": "escalation_slack_failed_trying_gmail_fallback",
                                     "email_id": email_id}))
         try:
-            import asyncio
-            from app.domains.email_ai import tools_email as email_tools
+            # FIX: Cannot use asyncio.run() inside running event loop.
+            # Queue to Gmail client async task instead.
+            from mcp_tools.gmail_client import gmail_client
             team_lead = getattr(settings, "TEAM_LEAD_EMAIL", None)
             if team_lead:
-                asyncio.get_event_loop().run_until_complete(
-                    email_tools.gmail_send_email(
+                # Non-blocking background send (fire and forget)
+                asyncio.create_task(
+                    gmail_client.send_reply(
                         to=team_lead,
                         subject=f"[ESCALATION] Sentiment alert on email {email_id}",
                         body=(
@@ -146,10 +153,10 @@ def _send_escalation_alert(email_id: str, sentiment: float, sender: str) -> None
                         thread_id=None,
                     )
                 )
-                logger.info(json.dumps({"event": "escalation_gmail_fallback_sent",
+                logger.info(json.dumps({"event": "escalation_gmail_fallback_queued",
                                         "email_id": email_id}))
         except Exception as exc:
-            # Both Slack and gmail failed — log only
+            # Both Slack and gmail fallback failed — log only
             logger.error(json.dumps({"event": "escalation_all_alerts_failed",
                                      "email_id": email_id, "error": str(exc)}))
 
@@ -165,17 +172,23 @@ def classification_node(state: AgentState) -> Dict[str, Any]:
             low_confidence_flag, sla_deadline, event_queue
     """
     email_text    = state.get("email_text", "")
+    email_subject = state.get("email_subject", "")
     parsed        = state.get("parsed_email", {})
     email_id      = parsed.get("email_id", state.get("email_id", "unknown"))
     sender        = parsed.get("sender", "unknown")
     domain_config = state.get("domain_config")  # injected at intake; may be None in tests
 
+    # If subject not in state, extract from parsed_email or raw_email
+    if not email_subject:
+        email_subject = parsed.get("subject", state.get("raw_email", {}).get("subject", ""))
+
     logger.info(json.dumps({"event": "classification_started", "email_id": email_id,
-                             "domain": (domain_config or {}).get("domain_id", "unknown")}))
+                             "domain": (domain_config or {}).get("domain_id", "unknown"),
+                             "subject": email_subject[:50]}))
 
     # ---- ONE batched Groq call (domain-aware) ----
     try:
-        result = _classify_and_score(email_text, domain_config=domain_config)
+        result = _classify_and_score(email_text, email_subject=email_subject, domain_config=domain_config)
     except Exception as exc:
         send_to_dead_letter_queue({"email_id": email_id}, str(exc))
         return {
@@ -262,7 +275,11 @@ def classification_node(state: AgentState) -> Dict[str, Any]:
             logger.error(json.dumps({"event": "db_update_failed", "error": str(exc), "email_id": email_id}))
 
     import asyncio
-    asyncio.run(_async_update_email())
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(_async_update_email())
+    finally:
+        loop.close()
 
     return {
         "classification_result": result,

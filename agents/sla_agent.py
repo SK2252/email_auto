@@ -204,7 +204,7 @@ def _send_gmail_fallback_alert(
 
     try:
         import asyncio
-        from app.domains.email_ai import tools_email as email_tools
+        from _app_root_conflict.domains.email_ai import tools_email as email_tools
         asyncio.run(
             email_tools.gmail_send_email(
                 to=recipient,
@@ -303,11 +303,11 @@ def _check_email_sla(
 
     elapsed_pct = (now - created_at) / (sla_deadline - created_at) * 100
     """
-    email_id       = str(email["email_id"])
+    email_id: str  = str(email["email_id"])
     sla_deadline   = email["sla_deadline"]
     created_at     = email["created_at"]
     assignee       = email.get("current_assignee", "Unassigned")
-    case_ref       = email.get("case_reference", email_id[:8])
+    case_ref       = email.get("case_reference") or email_id[:8]  # type: ignore
     sender         = email.get("sender", "unknown")
     subject        = email.get("subject", "(no subject)")
     alert_80_sent  = email.get("alert_80_sent", False)
@@ -330,10 +330,10 @@ def _check_email_sla(
         return {"email_id": email_id, "skipped": True, "reason": "zero_sla_window"}
 
     elapsed_pct = (elapsed_secs / total_window) * 100
-
+    
     result = {
         "email_id":    email_id,
-        "elapsed_pct": round(elapsed_pct, 1),
+        "elapsed_pct": float(int(elapsed_pct * 10) / 10.0),
         "action":      "none",
     }
 
@@ -346,7 +346,7 @@ def _check_email_sla(
             f"Case: `{case_ref}` | Assignee: {assignee}\n"
             f"From: {sender}\n"
             f"Subject: {subject}\n"
-            f"Elapsed: *{round(elapsed_pct, 1)}%* of SLA window\n"
+            f"Elapsed: *{float(int(elapsed_pct * 10) / 10.0)}%* of SLA window\n"
             f"SLA deadline was: {sla_deadline.strftime('%Y-%m-%d %H:%M UTC')}"
         )
 
@@ -360,7 +360,7 @@ def _check_email_sla(
                 f"Assignee: {assignee}\n"
                 f"From: {sender}\n"
                 f"Subject: {subject}\n"
-                f"Elapsed: {round(elapsed_pct, 1)}% of SLA window\n"
+                f"Elapsed: {float(int(elapsed_pct * 10) / 10.0)}% of SLA window\n"
                 f"Deadline was: {sla_deadline}"
             ),
         )
@@ -393,7 +393,7 @@ def _check_email_sla(
         logger.warning(json.dumps({
             "event":       "sla_breach",
             "email_id":    email_id,
-            "elapsed_pct": round(elapsed_pct, 1),
+            "elapsed_pct": float(int(elapsed_pct * 10) / 10.0),
             "case_ref":    case_ref,
         }))
 
@@ -406,7 +406,7 @@ def _check_email_sla(
             f"Case: `{case_ref}` | Assignee: {assignee}\n"
             f"From: {sender}\n"
             f"Subject: {subject}\n"
-            f"Elapsed: *{round(elapsed_pct, 1)}%* of SLA window\n"
+            f"Elapsed: *{float(int(elapsed_pct * 10) / 10.0)}%* of SLA window\n"
             f"SLA deadline: {sla_deadline.strftime('%Y-%m-%d %H:%M UTC')}"
         )
 
@@ -414,9 +414,9 @@ def _check_email_sla(
         _alert_with_fallback(
             slack_channel=channel,
             slack_message=warning_msg,
-            email_subject=f"[SLA Warning] Case {case_ref} at {round(elapsed_pct, 1)}%",
+            email_subject=f"[SLA Warning] Case {case_ref} at {float(int(elapsed_pct * 10) / 10.0)}%",
             email_body=(
-                f"SLA warning: case {case_ref} has used {round(elapsed_pct, 1)}% of its window.\n"
+                f"SLA warning: case {case_ref} has used {float(int(elapsed_pct * 10) / 10.0)}% of its window.\n"
                 f"Assignee: {assignee}\n"
                 f"Deadline: {sla_deadline}"
             ),
@@ -435,7 +435,7 @@ def _check_email_sla(
         logger.info(json.dumps({
             "event":       "sla_80pct_alert",
             "email_id":    email_id,
-            "elapsed_pct": round(elapsed_pct, 1),
+            "elapsed_pct": float(int(elapsed_pct * 10) / 10.0),
             "case_ref":    case_ref,
         }))
 
@@ -564,7 +564,7 @@ def sla_check_all_open_emails(self) -> Dict[str, Any]:
                     
                 dashboard_data.append({
                     "email_id":         str(e["email_id"]),
-                    "elapsed_pct":      round(pct, 1),
+                    "elapsed_pct":      float(int(pct * 10) / 10.0),
                     "current_assignee": e.get("current_assignee"),
                     "sla_deadline":     sla_deadline.isoformat(),
                     "priority":         e.get("priority"),
@@ -580,15 +580,21 @@ def sla_check_all_open_emails(self) -> Dict[str, Any]:
         except Exception as exc:
             logger.warning(json.dumps({"event": "redis_dashboard_snapshot_failed", "error": str(exc)}))
 
-        elapsed_ms = round((time.monotonic() - run_start) * 1000)
+        elapsed_ms = int((time.monotonic() - run_start) * 1000)
         summary["elapsed_ms"] = elapsed_ms
 
         logger.info(json.dumps({"event": "sla_check_completed", **summary}))
         return summary
 
+    except Exception as exc:
+        logger.exception(json.dumps({"event": "sla_check_global_error", "error": str(exc)}))
+        return {"error": str(exc)}
+
     finally:
         if conn:
             conn.close()
+    
+    return {"status": "finished_no_summary"}
 
 
 # ---------------------------------------------------------------------------
@@ -600,3 +606,4 @@ SLA_CELERY_BEAT_SCHEDULE = {
         "schedule": 300.0,   # 300 seconds = 5 minutes exactly (locked)
     },
 }
+

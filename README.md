@@ -14,6 +14,115 @@ The system orchestrates a pipeline of specialized agents built on LangGraph, pro
 6.  **AG-06 Audit & Compliance Agent:** A universally injected node that drains `event_queue` tracking variables across the LangGraph state. Writes append-only logs directly to PostgreSQL with an in-memory failsafe buffer that flushes automatically upon database reconnection.
 7.  **AG-07 Analytics Agent (Phase 4):** Processes insights and aggregations against the PostgreSQL database.
 
+## Parallel Execution & Optimization
+
+The system employs advanced parallelization for performance:
+- **AG-03 Routing** and **AG-05 SLA** run concurrently post-classification (after AG-02 completes).
+- **Duplicate detection** (AG-01) uses external ID fingerprinting combined with sender/subject hashing to prevent redundant ingestion.
+- **PII enforcement** (AG-04) applies categorical domain gating: Auto-send is strictly blocked for Healthcare and Legal domains regardless of confidence scores.
+
+## MCP Server & Tools Suite
+
+The system includes a production-ready **Model Context Protocol (MCP) server** running on port 9000, providing 22+ integrated tools:
+
+### Gmail Tools (20)
+- **Core Operations (10):** `gmail_list_messages`, `gmail_get_message`, `gmail_search_messages`, `gmail_send_message`, `gmail_move_message`, `gmail_archive_message`, `gmail_mark_read`, `gmail_get_labels`, `gmail_modify_labels`, `gmail_get_attachment`
+- **Automation Tools (10):** Auto-reply setup, label management, vacation settings, filter creation, and batch operations
+
+### Filesystem & Document Tools
+- Safe file system access with configurable path restrictions
+- Document parsing and processing utilities
+
+### Key Features
+- **Attachment Handling:** Base64url encoded retrieval with automatic decoding support
+- **Rate Limiting:** Groq API constrained to 30 RPM with sliding-window enforcement
+- **Safe Registration:** Idempotent MCP tool registration with validation layer
+
+### Running the MCP Server
+```bash
+python run_mcp_server.py
+# Server runs on http://localhost:9000
+```
+
+## Gmail Label Management
+
+The system maintains a comprehensive label taxonomy:
+- **28 Dynamic Labels:** Organized as 7 categories (Billing, HR, IT, Legal, Healthcare, Education, Ecommerce) × 4 priority levels (Critical, High, Medium, Low)
+- **60+ Legacy Alias Mappings:** Robust deduplication for stale LLM responses that reference outdated label names
+- **Redis Cache:** Sprint 10 deduplication layer prevents duplicate label assignments
+
+Access via `utils/gmail_label_manager.py` for label creation, validation, and mapping operations.
+
+## Case ID System
+
+All tickets are tracked using a globally unique, sortable identifier:
+```
+Format: CASE-YYYYMMDD-{UUID[:6]}
+Example: CASE-20260316-a7f2e1
+```
+
+Benefits:
+- Human-readable and debuggable
+- Chronologically sortable for historical queries
+- Consistent across all agent stages and audit logs
+
+## User Interface (Phase 2)
+
+A React + Vite frontend is included with components for:
+- **Email Inbox:** Display and filtering of managed emails
+- **Chat Interface:** Direct interaction with the agent pipeline
+- **Status Dashboard:** Real-time pipeline execution and SLA monitoring
+
+The UI is integrated with the MCP server foundation and awaits REST API endpoint implementation for full functionality. Build and serve via:
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+## Debugging & Testing
+
+Comprehensive suite of debug and test utilities:
+
+### Debug Scripts
+- `debug_full_pipeline.py` — Trace complete email-to-response flow
+- `debug_orchestrator_pipeline.py` — Test multi-agent orchestration
+- `debug_polling_loop.py` — Verify Gmail polling and intake
+- `debug_labels.py` — Validate label creation and application
+
+### Test Suites
+- `test_supabase.py` — Database connectivity
+- `test_label_system.py` — Label taxonomy and aliases
+- `test_unknown_tenant.py` — Multi-tenant routing edge cases
+
+All test scripts include UTF-8 encoding fixes for Windows environments and structured JSON logging.
+
+## LLM Provider Configuration
+
+The system supports swappable LLM providers (Groq, Gemini, Mistral) configured once in `config/settings.py`:
+
+```python
+# config/settings.py
+LLM_PROVIDER = "groq"  # or "gemini", "mistral"
+GROQ_API_KEY = "..."
+GEMINI_API_KEY = "..."
+MISTRAL_API_KEY = "..."
+GROQ_RATE_LIMIT = 30  # requests per minute
+```
+
+Provider configuration is centralized—no hardcoding in agent code.
+
+## Deployment & Tooling
+
+### Deployment Tool
+`fixdeploy.py` — Batch deployment with AST verification:
+- Validates no `asyncio.run()` calls within class methods
+- Checks event loop patterns for compatibility
+- Idempotent tool registration system
+
+### Patch System
+Safe updates to MCP tools via `patch_tools_email.py` and `patch_mcp_server.py` with built-in validation.
+
 ## Prerequisites & Setup
 
 Requires Python 3.10+ (recommend 3.11+).

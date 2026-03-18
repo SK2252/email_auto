@@ -7,6 +7,24 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =============================================================================
+-- TENANTS TABLE — Multi-domain / Multi-tenant registry
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS tenants (
+    tenant_id           VARCHAR(100)  PRIMARY KEY,            -- e.g. 'acme_hospital'
+    domain_id           VARCHAR(50)   NOT NULL                -- e.g. 'healthcare'
+        CHECK (domain_id IN (
+            'healthcare', 'it_support', 'billing', 'hr',
+            'legal', 'ecommerce', 'education'
+        )),
+    name                VARCHAR(255)  NOT NULL,               -- 'ACME Hospital Group'
+    config_overrides    JSONB         NOT NULL DEFAULT '{}',  -- per-tenant overrides merged
+                                                              -- on top of base domain config
+    active              BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================================
 -- EMAILS TABLE — Core intake record, one row per inbound email
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS emails (
@@ -59,6 +77,7 @@ CREATE TABLE IF NOT EXISTS emails (
     current_step        VARCHAR(50)  DEFAULT 'intake',
     agent_statuses      JSONB        DEFAULT '{}',  -- {agent_id: status}
     retry_count         SMALLINT     DEFAULT 0,
+    pipeline_timings    JSONB        DEFAULT '{}',  -- per-agent timestamps + durations
 
     -- Timestamps
     created_at  TIMESTAMPTZ DEFAULT NOW(),
@@ -103,24 +122,6 @@ CREATE TABLE IF NOT EXISTS audit_buffer (
     payload     JSONB       NOT NULL,               -- same schema as audit_log row
     created_at  TIMESTAMPTZ DEFAULT NOW(),
     flushed     BOOLEAN     DEFAULT FALSE            -- mark True before DELETE on flush
-);
-
--- =============================================================================
--- TENANTS TABLE — Multi-domain / Multi-tenant registry
--- =============================================================================
-CREATE TABLE IF NOT EXISTS tenants (
-    tenant_id           VARCHAR(100)  PRIMARY KEY,            -- e.g. 'acme_hospital'
-    domain_id           VARCHAR(50)   NOT NULL                -- e.g. 'healthcare'
-        CHECK (domain_id IN (
-            'healthcare', 'it_support', 'billing', 'hr',
-            'legal', 'ecommerce', 'education'
-        )),
-    name                VARCHAR(255)  NOT NULL,               -- 'ACME Hospital Group'
-    config_overrides    JSONB         NOT NULL DEFAULT '{}',  -- per-tenant overrides merged
-                                                              -- on top of base domain config
-    active              BOOLEAN       NOT NULL DEFAULT TRUE,
-    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
 -- =============================================================================

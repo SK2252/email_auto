@@ -56,6 +56,8 @@ mcp.add_tool(email.gmail_suggest_followups)
 # Phase 5B: Archive & Move
 mcp.add_tool(email.gmail_archive_messages)
 mcp.add_tool(email.gmail_move_to_folder)
+mcp.add_tool(email.gmail_get_attachment)  # attachment download
+
 
 # --- Register Job Orchestrator Tools ---
 mcp.add_tool(job_orchestrator.submit_job)
