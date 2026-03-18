@@ -159,15 +159,42 @@ def call_llm(
 
     if provider == LLMProvider.GROQ:
         limiter = _get_limiter("groq", settings.GROQ_RPM_LIMIT)
-        limiter.acquire()
-        return _call_openai_compat(
-            base_url=settings.GROQ_BASE_URL,
-            api_key=settings.GROQ_API_KEY,
-            model=settings.GROQ_MODEL,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        
+        models_to_try = [
+            settings.GROQ_MODEL,
+            getattr(settings, "GROQ_FALLBACK_1", None),
+            getattr(settings, "GROQ_FALLBACK_2", None)
+        ]
+        # Filter out None values in case fallbacks aren't defined
+        models_to_try = [m for m in models_to_try if m]
+
+        last_exc = None
+        for model in models_to_try:
+            try:
+                limiter.acquire()
+                logger.info(json.dumps({"event": "llm_call_attempt", "provider": "groq", "model": model}))
+                return _call_openai_compat(
+                    base_url=settings.GROQ_BASE_URL,
+                    api_key=settings.GROQ_API_KEY,
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(json.dumps({
+                    "event": "llm_call_fallback",
+                    "provider": "groq",
+                    "failed_model": model,
+                    "error": str(exc)
+                }))
+                continue
+        
+        # If all models failed, raise the last exception
+        if isinstance(last_exc, Exception):
+            raise last_exc
+        raise ValueError("No Groq models available to call")
 
     elif provider == LLMProvider.GEMINI:
         # Gemini quota is by day — no in-process RPM guard needed beyond basic tracking

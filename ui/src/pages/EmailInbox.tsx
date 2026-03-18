@@ -56,6 +56,7 @@ const EmailInbox: React.FC = () => {
   const [searchTerm,       setSearchTerm]       = useState('');
   const [isBackfilling,    setIsBackfilling]    = useState(false);
   const [selectedEmail,    setSelectedEmail]    = useState<EmailMessage | null>(null);
+  const [authenticatedEmail, setAuthenticatedEmail] = useState<string>('');
 
   // ── Fetch Gmail messages via MCP REST API ──────────────────────────────
   const fetchEmails = async (query = '', showLoader = true) => {
@@ -71,6 +72,21 @@ const EmailInbox: React.FC = () => {
       console.error('fetchEmails failed', e);
     } finally {
       if (showLoader) setLoading(false);
+    }
+  };
+
+  // ── Fetch authenticated user's Gmail profile ──────────────────────────
+  const fetchProfile = async () => {
+    try {
+      const r = await fetch('http://localhost:9000/api/v1/gmail/profile', {
+        headers: { 'x-api-key': 'dummy-key' }
+      });
+      const d = await r.json();
+      if (d.status === 'OK' && d.email) {
+        setAuthenticatedEmail(d.email);
+      }
+    } catch (e) {
+      console.error('fetchProfile failed', e);
     }
   };
 
@@ -109,6 +125,7 @@ const EmailInbox: React.FC = () => {
   useEffect(() => {
     if (isHumanReview) fetchHumanReview();
     else fetchEmails();
+    fetchProfile();
   }, [labelFilter]);
 
   // SSE real-time updates
@@ -192,7 +209,7 @@ const EmailInbox: React.FC = () => {
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-          <a href={`https://mail.google.com/mail/#inbox/${email.threadId}`} target="_blank" rel="noopener noreferrer"
+          <a href={`https://mail.google.com/mail/#inbox/${email.threadId}?authuser=0`} target="_blank" rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-200/20">
             <Eye size={16} /> Open in Gmail
           </a>

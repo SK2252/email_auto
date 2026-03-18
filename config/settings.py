@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     GROQ_API_KEY:       str = ""
     GROQ_BASE_URL:      str = "https://api.groq.com/openai/v1"
     GROQ_MODEL:         str = "llama-3.3-70b-versatile"
+    GROQ_FALLBACK_1:    str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    GROQ_FALLBACK_2:    str = "qwen/qwen3-32b"
     GROQ_RPM_LIMIT:     int = 30           # requests per minute (free tier)
     GROQ_RPD_LIMIT:     int = 14_400       # requests per day
 

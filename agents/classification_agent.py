@@ -4,7 +4,7 @@ Sprint 4-5.
 
 KEY DESIGN DECISIONS:
   - Single Groq call for BOTH classification AND sentiment (conserve 30 rpm limit)
-  - Model: llama-3.3-70b-versatile (via llm_client.py — never hardcoded here)
+  - Model: llama-3.3-70b-versatile (primary) with fallback chain (via llm_client.py) # Groq calls now include fallback models
   - Confidence < 0.7  → low_confidence_flag = True → human review queue
   - Sentiment  < -0.5 → escalation_flag → Slack alert to Team Lead channel
 """

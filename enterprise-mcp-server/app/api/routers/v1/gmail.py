@@ -11,7 +11,8 @@ from app.domains.email_ai.tools_email import (
     gmail_summarize_thread,
     gmail_suggest_followups,
     gmail_list_messages,
-    gmail_fetch_message
+    gmail_fetch_message,
+    gmail_fetch_profile
 )
 import asyncio
 from app.infrastructure.external.gmail_client import get_gmail_service, execute_gmail_api
@@ -141,6 +142,29 @@ async def search_emails(
     except Exception as e:
         logger.error(f"Gmail search failed: {e}")
         return SearchResponse(status="ERROR", messages=[], count=0)
+
+@router.get("/profile")
+async def get_user_profile(x_api_key: Optional[str] = Header(None)):
+    """
+    Get the authenticated Gmail user's profile information.
+    Returns email address and basic profile data.
+    """
+    try:
+        result = await gmail_fetch_profile(user_id="me")
+        
+        if result.get("status") != "OK":
+            return {"status": "ERROR", "error": result.get("error", "Failed to fetch profile")}
+        
+        data = result.get("data", {})
+        return {
+            "status": "OK",
+            "email": data.get("emailAddress", ""),
+            "messagesTotal": data.get("messagesTotal", 0),
+            "threadsTotal": data.get("threadsTotal", 0)
+        }
+    except Exception as e:
+        logger.error(f"Profile fetch failed: {e}")
+        return {"status": "ERROR", "error": str(e)}
 
 @router.post("/backfill")
 async def trigger_backfill(
