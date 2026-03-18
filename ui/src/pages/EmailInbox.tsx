@@ -209,7 +209,7 @@ const EmailInbox: React.FC = () => {
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-          <a href={`https://mail.google.com/mail/#inbox/${email.threadId}?authuser=0`} target="_blank" rel="noopener noreferrer"
+          <a href={`https://mail.google.com/mail/u/1/#inbox/${email.threadId}`} target="_blank" rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-200/20">
             <Eye size={16} /> Open in Gmail
           </a>
