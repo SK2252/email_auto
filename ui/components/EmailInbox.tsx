@@ -247,7 +247,8 @@ const EmailInbox: React.FC = () => {
                                                 <h3 className="text-base font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors leading-tight">
                                                     {msg.subject || "(Empty Subject)"}
                                                 </h3>
-                                                {getCategoryBadge(msg.labelIds)}
+                                                {/* Category badges removed for cleaner UI as per feat commit */}
+                                                {/* {getCategoryBadge(msg.labelIds)} */}
                                             </div>
                                             <div className="flex items-center gap-3 text-sm font-medium text-slate-400 group-hover:text-slate-500">
                                                 <span className="truncate max-w-[220px]">{msg.from}</span>
