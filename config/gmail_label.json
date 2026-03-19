@@ -1,0 +1,161 @@
+{
+  "_comment": "Gmail Label Configuration — AI Inbox Management System",
+  "_note": "Edit this file to add/remove/rename labels. No Python changes needed.",
+  "_how_gmail_nesting_works": "Gmail builds hierarchy from '/' in label names. Parent must be listed before children. e.g. 'IT Support/HR Team' nests under 'IT Support'.",
+  "labels": [
+    {
+      "name": "IT Support",
+      "color": { "backgroundColor": "#a479e2", "textColor": "#ffffff" },
+      "children": [
+        {
+          "name": "IT Support/HR Team",
+          "color": { "backgroundColor": "#b694e8", "textColor": "#ffffff" }
+        },
+        {
+          "name": "IT Support/IT Support Team",
+          "color": { "backgroundColor": "#a479e2", "textColor": "#ffffff" }
+        },
+        {
+          "name": "IT Support/Network Ops Team",
+          "color": { "backgroundColor": "#d0bcf1", "textColor": "#41236d" }
+        },
+        {
+          "name": "IT Support/Security Team",
+          "color": { "backgroundColor": "#8e63ce", "textColor": "#ffffff" }
+        },
+        {
+          "name": "IT Support/General IT Queue",
+          "color": { "backgroundColor": "#d0bcf1", "textColor": "#41236d" }
+        }
+      ]
+    },
+    {
+      "name": "HR",
+      "color": { "backgroundColor": "#16a766", "textColor": "#ffffff" },
+      "children": [
+        {
+          "name": "HR/HR Operations",
+          "color": { "backgroundColor": "#16a766", "textColor": "#ffffff" }
+        },
+        {
+          "name": "HR/Payroll Team",
+          "color": { "backgroundColor": "#43d692", "textColor": "#ffffff" }
+        },
+        {
+          "name": "HR/Recruitment Team",
+          "color": { "backgroundColor": "#89d3b2", "textColor": "#076239" }
+        },
+        {
+          "name": "HR/Employee Relations",
+          "color": { "backgroundColor": "#b9e4d0", "textColor": "#076239" }
+        }
+      ]
+    },
+    {
+      "name": "Customer Support",
+      "color": { "backgroundColor": "#3dc789", "textColor": "#ffffff" },
+      "children": [
+        {
+          "name": "Customer Support/Customer Issues",
+          "color": { "backgroundColor": "#3dc789", "textColor": "#ffffff" },
+          "children": [
+            {
+              "name": "Customer Support/Customer Issues/Priority 1",
+              "color": { "backgroundColor": "#3dc789", "textColor": "#076239" }
+            },
+            {
+              "name": "Customer Support/Customer Issues/Priority 2",
+              "color": { "backgroundColor": "#b9e4d0", "textColor": "#076239" }
+            },
+            {
+              "name": "Customer Support/Customer Issues/Priority 3",
+              "color": { "backgroundColor": "#b9e4d0", "textColor": "#076239" }
+            }
+          ]
+        },
+        {
+          "name": "Customer Support/Product Support",
+          "color": { "backgroundColor": "#4a86e8", "textColor": "#ffffff" }
+        },
+        {
+          "name": "Customer Support/Warranty",
+          "color": { "backgroundColor": "#a4c2f4", "textColor": "#1c4587" }
+        }
+      ]
+    },
+    {
+      "name": "Others",
+      "color": { "backgroundColor": "#cccccc", "textColor": "#ffffff" },
+      "children": [
+        {
+          "name": "Others/Uncategorised",
+          "color": { "backgroundColor": "#efefef", "textColor": "#434343" }
+        }
+      ]
+    }
+  ],
+  "alias_map": {
+    "_comment": "LLM classification category → exact Gmail label path to apply",
+    "it": "IT Support/IT Support Team",
+    "it_support": "IT Support/IT Support Team",
+    "password_reset": "IT Support/IT Support Team",
+    "software_bug": "IT Support/IT Support Team",
+    "hardware_issue": "IT Support/IT Support Team",
+    "software_issue": "IT Support/IT Support Team",
+    "access_denied": "IT Support/IT Support Team",
+    "network_issue": "IT Support/Network Ops Team",
+    "vpn_issue": "IT Support/Network Ops Team",
+    "connectivity": "IT Support/Network Ops Team",
+    "access_request": "IT Support/Security Team",
+    "security_incident": "IT Support/Security Team",
+    "onboarding": "IT Support/HR Team",
+    "offboarding": "IT Support/HR Team",
+    "general_query": "IT Support/General IT Queue",
+    "general_it": "IT Support/General IT Queue",
+    "hr": "HR/HR Operations",
+    "leave": "HR/HR Operations",
+    "leave_request": "HR/HR Operations",
+    "employee_policy": "HR/HR Operations",
+    "grievance": "HR/HR Operations",
+    "harassment": "HR/HR Operations",
+    "payroll": "HR/Payroll Team",
+    "payroll_query": "HR/Payroll Team",
+    "salary_issue": "HR/Payroll Team",
+    "salary": "HR/Payroll Team",
+    "employee_grievance": "HR/Payroll Team",
+    "recruitment": "HR/Recruitment Team",
+    "hiring": "HR/Recruitment Team",
+    "employee_relations": "HR/Employee Relations",
+    "appraisal": "HR/Employee Relations",
+    "billing": "Customer Support/Customer Issues",
+    "complaint": "Customer Support/Customer Issues",
+    "query": "Customer Support/Customer Issues",
+    "info_request": "Customer Support/Customer Issues",
+    "escalation": "Customer Support/Customer Issues",
+    "customer_support": "Customer Support/Customer Issues",
+    "other": "Others/Uncategorised",
+    "unknown": "Others/Uncategorised",
+    "product_support": "Customer Support/Product Support",
+    "product_issue": "Customer Support/Product Support",
+    "product_query": "Customer Support/Product Support",
+    "warranty": "Customer Support/Warranty",
+    "warranty_claim": "Customer Support/Warranty",
+    "spam": "Others/Uncategorised",
+    "general": "Others/Uncategorised",
+    "miscellaneous": "Others/Uncategorised",
+    "unclassified": "Others/Uncategorised"
+  },
+  "stale_label_prefixes": [
+    "IT Support",
+    "HR",
+    "Customer Support",
+    "IT-Tier1",
+    "Network-Ops",
+    "Other",
+    "Billing",
+    "Complaint",
+    "Query",
+    "Escalation",
+    "Others"
+  ]
+}

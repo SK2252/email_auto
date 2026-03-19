@@ -51,6 +51,7 @@ async def is_duplicate(external_id: str, sender: str = "", subject: str = "") ->
     except Exception as e:
         logger.error(json.dumps({"event": "dedup_check_failed", "external_id": external_id, "error": str(e)}))
         return False
+    return False
 
 
 async def poll_and_ingest():
@@ -463,7 +464,7 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
     # Use raw attachments (dicts with attachmentId) not parsed (filenames only)
     raw_attachments  = raw.get("attachments", [])
     gmail_message_id = raw.get("email_id", "")   # real Gmail ID e.g. 19ce81a9
-    att_paths: List[str] = []
+    att_paths: List[Dict[str, Any]] = []
     if raw_attachments:
         try:
             # Build human-readable folder name: subject_YYYY-MM-DD
@@ -540,8 +541,24 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
                 case_id,
                 ack_sent,
                 json.dumps(att_paths),
-                intake_at,                              # $12 — pipeline_timings intake_at
+                intake_at,
             )
+
+            # --- ST-E1-06 Enhanced: Insert into dedicated attachments table ---
+            for att in att_paths:
+                await conn.execute(
+                    """
+                    INSERT INTO attachments (
+                        email_id, tenant_id, filename, content_type, storage_path, size_bytes
+                    ) VALUES ($1::uuid, $2, $3, $4, $5, $6)
+                    """,
+                    parsed["email_id"],
+                    tenant_id if tenant_id != "default" else None,
+                    att["filename"],
+                    att["mime_type"],
+                    att["path"],
+                    att["size_bytes"]
+                )
         finally:
             await conn.close()
     except Exception as exc:

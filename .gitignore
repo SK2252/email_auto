@@ -21,6 +21,7 @@ ENV/
 credentials/
 *.json
 !package.json
+!config/gmail_label.json
 *.pem
 *.key
 *.p12
