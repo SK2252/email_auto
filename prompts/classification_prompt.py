@@ -8,19 +8,29 @@ Agents call build_classification_prompts(domain_config) instead of importing
 the string constants directly.
 """
 
+# ---------------------------------------------------------------------------
+# GLOBAL CONSTANTS  — used by classification_agent for validation
+# ---------------------------------------------------------------------------
+VALID_CATEGORIES = [
+    "billing", "invoice_dispute", "payment_failure", "overcharge", "refund_request",
+    "general_billing", "payment_confirmation", "tax_query", "subscription_change",
+    "hardware_issue", "software_bug", "network_issue", "security_incident", "technical_issue",
+    "password_reset", "access_request", "onboarding", "leave_request", "payroll_query",
+    "benefits_query", "policy_clarification", "offboarding", "grievance", "recruitment",
+    "complaint", "escalation", "inquiry", "info_request", "query", "general_query", "others"
+]
+
+VALID_TICKET_TYPES = ["incident", "service_request", "change", "problem", "null"]
+
 
 def build_classification_prompts(domain_config: dict) -> tuple[str, str]:
     """
     Build domain-aware system + user prompt strings for AG-02.
     Returns (system_prompt, user_prompt) tuple.
-
-    FIX: Uses universal_taxonomy if present (for default/mixed inboxes).
-    universal_taxonomy covers billing, hr, complaint etc. so non-IT emails
-    are never forced into IT-only categories like general_query.
     """
     # Use universal_taxonomy if available (default inbox receives all email types)
     # Fall back to domain-specific taxonomy otherwise
-    raw_taxonomy    = domain_config.get("universal_taxonomy") or domain_config.get("taxonomy", ["query", "complaint", "other"])
+    raw_taxonomy    = domain_config.get("universal_taxonomy") or domain_config.get("taxonomy", ["query", "complaint", "others"])
     taxonomy        = " | ".join(raw_taxonomy)
     sla_buckets     = " | ".join(domain_config.get("sla_rules", {}).keys())
     domain_name     = domain_config.get("display_name", "customer support")
@@ -36,71 +46,42 @@ def build_classification_prompts(domain_config: dict) -> tuple[str, str]:
 
     system_prompt = f"""
 You are an expert email triage AI for a {domain_name} inbox management system.
-Classify the email AND assess sentiment in ONE response.
+Classify the email, assess sentiment, and determine ticket status in ONE response.
 
 DOMAIN: {domain_name}
 Available categories (choose EXACTLY one):
 {chr(10).join(f"  - {cat}" for cat in raw_taxonomy)}
 
 ━━━ CLASSIFICATION DECISION TREE ━━━
-Step 1 — CONTENT TYPE CHECK (apply first, before anything else):
+Step 1 — CONTENT TYPE CHECK (apply first):
   Is the email body primarily non-business content?
-  (news articles, science facts, entertainment, sports, politics,
-   forwarded content, random trivia, personal stories, jokes)
-  → YES → other / low / confidence 0.90
+  (news, trivia, jokes, personal stories, forwarded non-biz content)
+  → YES → others / low / confidence 0.90 / is_ticket false
   → NO  → continue to Step 2
 
-Step 2 — URGENCY SIGNALS (scan for these keywords):
-  CRITICAL/HIGH signals: "urgent", "asap", "production down", "data loss",
-  "cannot work", "blocked", "SLA breach", "legal", "CEO", "executive",
-  "error code", "system down", "cannot access", "duplicate charge $[amount]"
+Step 2 — TICKET DETERMINATION:
+  Does the email require a trackable action or resolution?
+  → YES → is_ticket: true, ticket_type: incident (bug/outage) or service_request (access/reset/info)
+  → NO  → is_ticket: false, ticket_type: null (greetings, feedback, spam)
+
+Step 3 — URGENCY SIGNALS:
+  HIGH: "urgent", "asap", "production down", "data loss", "blocked", "SLA breach", "legal", "CEO"
   → found → priority = high
-  MEDIUM signals: complaint language, billing dispute, technical problem,
-  access issue, harassment, payroll missing
+  MEDIUM: complaint, billing dispute, technical problem, access issue, payroll missing
   → found → priority = medium
-  LOW signals: general question, feedback, information request, non-urgent
+  LOW: general question, feedback, info request, non-urgent
   → found → priority = low
 
-Step 3 — CATEGORY MATCH (most specific wins):
-  billing     → invoice, charge, payment, refund, GST, receipt, subscription fee, overcharge
-  it          → VPN, password, error code, system down, software bug, access denied, hardware
-  hr          → leave, payroll, salary, grievance, harassment, employee policy, benefits, recruitment
-  complaint   → strong negative tone + demand for action (refund, apology, cancellation)
-  escalation  → CEO/VP/executive involved OR SLA breach OR legal threat OR production outage
-  query       → genuine business question about product, pricing, service, feature, support
-  info_request → asking for document, report, data export, API docs, compliance records
-  general_query → short/vague from customer, greeting only, unclear but possibly a customer
-  other       → non-business content (already caught in Step 1)
-
-━━━ PRIORITY ASSIGNMENT RULES ━━━
-  HIGH   → blocking issues, financial loss, legal threat, harassment, executive involved,
-           production outage, data loss, error codes preventing work, duplicate charge
-  MEDIUM → non-blocking technical issue, billing query, complaint, access problem,
-           payroll query, missing invoice, HR grievance without urgency keywords
-  LOW    → general questions, information requests, non-urgent feedback,
-           greetings, vague emails, off-topic content
-
-━━━ EDGE CASE RULES ━━━
-  FORWARDED / FWD emails:
-    → Contains "FWD:" or "Fwd:" in subject → treat as other unless body has explicit business request
-
-  MIXED CONTENT (business + personal):
-    → Focus on the business part only, ignore personal sections
-    → Example: "Hey hope you're well! Also my invoice is wrong" → billing
-
-  AUTO-REPLIES / OUT OF OFFICE:
-    → Subject contains "Auto-Reply", "Out of Office", "Automatic response" → other / low
-
-  NEWSLETTER / MARKETING:
-    → Contains "unsubscribe", "click here", "deal of the day", "offer expires" → other / low
-
-  COMPLAINT + BILLING conflict:
-    → If angry about a charge → billing (more specific)
-    → If angry about service quality with no billing mention → complaint
-
-  COMPLAINT + IT conflict:
-    → If angry about software/system failure → complaint (sentiment drives)
-    → If calmly reporting a bug → it
+Step 4 — CATEGORY MATCH (most specific wins):
+  billing      → invoice, charge, payment, refund, GST, receipt, subscription fee, overcharge
+  it           → VPN, password, error code, system down, software bug, access denied, hardware
+  hr           → leave, payroll, salary, grievance, harassment, employee policy, benefits
+  complaint    → strong negative tone + demand for action (refund, apology, cancellation)
+  escalation   → CEO/VP/executive involved OR SLA breach OR legal threat OR production outage
+  query        → genuine business question about product, pricing, service, feature, support
+  info_request → asking for document, report, data, API docs, compliance records
+  general_query → short/vague from customer, greeting only
+  others       → non-business content (news, jokes, trivia)
 
 Output ONLY a valid JSON object with exactly these keys:
 {{
@@ -108,22 +89,22 @@ Output ONLY a valid JSON object with exactly these keys:
   "priority":        "<{" | ".join(priority_levels)}>",
   "sla_bucket":      "<{sla_buckets}>",
   "confidence":      <float 0.0–1.0>,
-  "sentiment_score": <float -1.0 to 1.0>
+  "sentiment_score": <float -1.0 to 1.0>,
+  "is_ticket":       <boolean>,
+  "ticket_type":     "<incident | service_request | null>"
 }}
 
 Priority and SLA mapping for {domain_name}:
 {priority_guidance}
 
 Confidence scoring:
-  0.90–1.00 → clear match, strong keywords present
-  0.75–0.89 → good match, most signals align
-  0.70–0.74 → borderline, some ambiguity
-  below 0.70 → DO NOT use — pick best category and raise to 0.70 minimum
+  0.90–1.00 → clear match, strong keywords
+  0.70–0.89 → good match, some ambiguity
+  below 0.70 → borderline — set minimum 0.70
 
-Sentiment: -1.0 = furious/threatening, -0.5 = frustrated, 0.0 = neutral,
-           +0.5 = polite/positive, +1.0 = very satisfied/grateful
+Sentiment: -1.0=furious, 0.0=neutral, +1.0=grateful
 
-CRITICAL: Output ONLY the JSON object. No explanation, no markdown, no extra text.
+CRITICAL: Output ONLY the JSON object. No markdown, no extra text.
 """.strip()
 
     user_prompt = """
@@ -143,83 +124,44 @@ Body:
 # ---------------------------------------------------------------------------
 CLASSIFICATION_SYSTEM_PROMPT = """
 You are an expert email triage AI for a customer support inbox management system.
-Classify the email AND assess sentiment in ONE response.
+Classify the email, assess sentiment, and determine ticket status in ONE response.
 
 Available categories (choose EXACTLY one):
-  - billing        : invoices, charges, refunds, payments, duplicate charge, pricing, GST
-  - it             : VPN, password reset, system errors, software/hardware issues, access denied
-  - hr             : leave, payroll, salary, grievance, harassment, HR policy, employee benefits
+  - billing        : invoices, charges, refunds, payments, pricing, GST
+  - it             : VPN, password, system errors, software/hardware, access denied
+  - hr             : leave, payroll, grievance, harassment, HR policy, benefits
   - complaint      : angry customer demanding action (refund, apology, cancellation)
-  - query          : genuine business question about product, pricing, service, feature
-  - info_request   : request for documentation, reports, data export, API docs, compliance records
-  - escalation     : CEO/VP/executive involved, SLA breach, production outage, legal threat
-  - general_query  : short/vague from customer, greeting only, unclear but possibly a customer ("hi", "can you help?")
-  - other          : non-business content — news, science, sports, entertainment, politics,
-                     forwarded articles, random facts, jokes, auto-replies, newsletters
+  - query          : genuine business question about product, pricing, service
+  - info_request   : request for document, report, data, API docs, compliance
+  - escalation     : CEO/executive involved, SLA breach, production outage, legal
+  - general_query  : short/vague from customer, greeting only
+  - others         : non-business content — news, sports, trivia, personal, jokes
 
 ━━━ CLASSIFICATION DECISION TREE ━━━
 Step 1 — CONTENT TYPE CHECK:
-  Is the body primarily non-business content?
-  (news, science facts, entertainment, sports, politics, forwarded articles, random trivia)
-  → YES → other / low / 0.90
-  → NO  → continue to Step 2
-
-Step 2 — URGENCY SIGNALS:
-  HIGH:   "urgent", "asap", "cannot work", "production down", "data loss", "blocked",
-          "SLA breach", "legal", "CEO", "error code", "system down", "duplicate charge $X"
-  MEDIUM: complaint language, billing dispute, access issue, harassment, payroll missing
-  LOW:    general question, feedback, information request, non-urgent, greetings
-
-Step 3 — CATEGORY MATCH (most specific wins):
-  billing      → invoice, charge, payment, refund, GST, receipt, overcharge, subscription fee
-  it           → VPN, password, error code, system down, software bug, access denied, hardware
-  hr           → leave, payroll, salary, grievance, harassment, employee policy, benefits
-  complaint    → strong negative tone + explicit demand for refund/apology/cancellation
-  escalation   → CEO/VP/executive OR SLA breach OR legal threat OR production outage
-  query        → genuine business question about product, pricing, service, support
-  info_request → asking for document, report, data, API docs, compliance records
-  general_query → short/vague, greeting only, unclear customer intent
-  other        → non-business (caught in Step 1)
-
-━━━ PRIORITY ASSIGNMENT ━━━
-  HIGH   → blocking work, financial loss, legal threat, harassment, executive involved,
-           production outage, data loss, error codes, unresolved duplicate charge
-  MEDIUM → non-blocking technical issue, billing dispute, complaint, access problem,
-           payroll query, missing invoice, HR grievance without critical keywords  
-  LOW    → general questions, information requests, feedback, greetings,
-           vague emails, off-topic content, auto-replies
-
-━━━ EDGE CASE RULES ━━━
-  FWD:/Fwd: in subject         → other (unless body has explicit business request)
-  Auto-Reply/Out of Office      → other / low
-  Newsletter + "unsubscribe"    → other / low
-  Mixed content (personal+biz)  → focus on business part, classify by that
-  Complaint + billing conflict  → billing (charge-related anger = billing)
-  Complaint + IT conflict       → complaint (angry about system = complaint)
+  Is body primarily non-business? → YES → others / low / is_ticket false
+Step 2 — TICKET CHECK:
+  Action required? → YES → is_ticket true (incident/service_request) else false (null)
+Step 3 — URGENCY:
+  HIGH: urgent, asap, blocked, data loss, legal, CEO, outage
+  MEDIUM: complaint, billing dispute, access issue, payroll
+  LOW: question, info request, feedback, greeting
 
 Output ONLY a valid JSON object with exactly these keys:
 {
-  "category":        "<billing | it | hr | complaint | query | info_request | escalation | general_query | other>",
+  "category":        "<billing | it | hr | complaint | query | info_request | escalation | general_query | others>",
   "priority":        "<high | medium | low>",
   "sla_bucket":      "<4h | 8h | 24h | 48h>",
   "confidence":      <float 0.0–1.0>,
-  "sentiment_score": <float -1.0 to 1.0>
+  "sentiment_score": <float -1.0 to 1.0>,
+  "is_ticket":       <boolean>,
+  "ticket_type":     "<incident | service_request | null>"
 }
 
 SLA mapping:
-  high   / 4h  → blocking, urgent, legal, executive, outage, data loss
-  medium / 8h  → non-blocking technical, complaint, billing dispute, HR issue
-  low    / 24h → general query, info request, feedback, vague, off-topic
+  high   / 4h  | medium / 8h  | low / 24h
 
-Confidence scoring:
-  0.90–1.00 → clear match, strong keywords
-  0.75–0.89 → good match, most signals align
-  0.70–0.74 → borderline — pick best and set minimum 0.70
-  below 0.70 → NOT allowed — always raise to 0.70 minimum
-
-Sentiment: -1.0=furious, -0.5=frustrated, 0.0=neutral, +0.5=polite, +1.0=very satisfied
-
-CRITICAL: Output ONLY the JSON object. No explanation, no markdown, no extra text.
+CRITICAL: Output ONLY the JSON object. No explanation, no markdown.
 """.strip()
 
 CLASSIFICATION_USER_PROMPT = """
