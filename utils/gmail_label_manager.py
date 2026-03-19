@@ -1,334 +1,399 @@
 """
-Gmail Label Manager — 2-Level Type/Priority Classification.
-Sprint 10: Robust Idempotency & Duplicate Prevention.
-"""
+utils/gmail_label_manager.py — Gmail Label Manager
+AI-Powered Inbox Management System
 
-import asyncio
+All label configuration (hierarchy, colours, aliases, stale prefixes)
+is defined in:  config/gmail_label.json
+
+To add, rename, or remove labels — edit that JSON file only.
+No changes needed in this file.
+
+HOW GMAIL NESTING WORKS:
+  Gmail builds visual nesting purely from "/" in label names.
+  "IT Support/HR Team" appears as a child of "IT Support".
+  Parent labels MUST be created before children — handled automatically.
+"""
+from __future__ import annotations
+
 import json
 import logging
-from typing import Dict, List, Optional, Any
-import redis
-
-# Centrally managed settings
 import os
-import sys
-
-# Ensure enterprise-mcp-server is in path for 'app' imports
-mcp_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "enterprise-mcp-server")
-if mcp_path not in sys.path:
-    sys.path.insert(0, mcp_path)
-
-from config.settings import settings
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Label Definitions & Mappings
+# JSON CONFIG PATH
+# Resolved relative to this file so it works regardless of cwd.
 # ---------------------------------------------------------------------------
-
-CATEGORIES = [
-    "Billing", "IT Support", "HR", "Complaint", 
-    "Query", "Escalation", "Other"
-]
-
-PRIORITIES = ["High", "Medium", "Low"]
-
-TYPE_DISPLAY = {
-    "billing":      "Billing",
-    "it":           "IT Support",
-    "hr":           "HR",
-    "complaint":    "Complaint",
-    "query":        "Query",
-    "info_request": "Query",
-    "escalation":   "Escalation",
-    "other":        "Other",
-}
-
-# Legacy aliases — old LLM category names that no longer exist in taxonomy.
-# These map stale LLM responses to correct TYPE_DISPLAY keys
-# so they never silently fall through to Other/Medium.
-_LEGACY_ALIAS: Dict[str, str] = {
-    # Old/stale category names
-    "inquiry":         "query",
-    "technical_issue": "it",
-    "technical":       "it",
-    "spam":            "other",
-    "general":         "query",
-    "hr_issue":        "hr",
-    "finance":         "billing",
-    "payment":         "billing",
-    "refund":          "billing",
-    
-    # Domain-specific IT Support taxonomy
-    "password_reset":      "it",
-    "hardware_issue":      "it",
-    "software_bug":        "it",
-    "access_request":      "it",
-    "network_issue":       "it",
-    "onboarding":          "it",
-    "security_incident":   "it",
-    # FIX: general_query was wrongly mapped to "it" — correct is "query"
-    "general_query":       "query",
-    "general_inquiry":     "query",
-    "pricing_inquiry":     "query",
-    "product_inquiry":     "query",
-    "support_request":     "query",
-    "account_query":       "query",
-    "service_query":       "query",
-    "information_request": "query",
-    "follow_up":           "query",
-    # Billing extras
-    "invoice":             "billing",
-    "subscription":        "billing",
-    "charge":              "billing",
-    "overcharge":          "billing",
-    # HR extras
-    "leave":               "hr",
-    "payroll":             "hr",
-    "benefits":            "hr",
-    # Complaint extras
-    "negative_feedback":   "complaint",
-    "dissatisfied":        "complaint",
-    
-    # Additional common variations and typos
-    "tech_support":        "it",
-    "technical_support":   "it",
-    "it_support":          "it",
-    "it_issue":            "it",
-    "system_issue":        "it",
-    "login_issue":         "it",
-    "vpn_issue":           "it",
-    "email_issue":         "it",
-    
-    # Billing variations
-    "payment_issue":       "billing",
-    "billing_issue":       "billing",
-    "invoice_issue":       "billing",
-    "charge_issue":        "billing",
-    "refund_issue":        "billing",
-    
-    # HR variations
-    "hr_query":            "hr",
-    "hr_request":          "hr",
-    "employee_issue":      "hr",
-    "workplace_issue":     "hr",
-    
-    # Complaint variations
-    "customer_complaint":  "complaint",
-    "service_complaint":   "complaint",
-    "product_complaint":   "complaint",
-    "unhappy":             "complaint",
-    "frustrated":          "complaint",
-    
-    # Query variations
-    "question":            "query",
-    "inquiry":             "query",
-    "request":             "query",
-    "help":                "query",
-    "assistance":          "query",
-    
-    # Escalation variations
-    "urgent":              "escalation",
-    "critical":            "escalation",
-    "emergency":           "escalation",
-    "ceo_escalation":      "escalation",
-    "executive_escalation":"escalation",
-}
-
-PRIORITY_DISPLAY = {
-    "high":     "High",
-    "medium":   "Medium",
-    "low":      "Low"
-}
+_HERE        = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_PATH = os.path.join(_HERE, "..", "config", "gmail_label.json")
 
 # ---------------------------------------------------------------------------
-# In-Process Cache
+# CONFIG LOADER
+# Parsed once at import time and cached — no repeated file I/O.
 # ---------------------------------------------------------------------------
-
-_label_cache: Dict[str, str] = {}
-_managed_label_ids: List[str] = []
-
-# ---------------------------------------------------------------------------
-# Helper: Patch Label Colors
-# ---------------------------------------------------------------------------
-
-def _patch_label_color(service, user_id: str, label_id: str, label_name: str) -> None:
-    """
-    Apply color to an existing Gmail label using the patch() method.
-    Works for both parent labels (Billing, IT Support, etc.) and existing labels.
-    """
+def _load_config() -> dict:
+    """Load and return the parsed gmail_labels.json config."""
+    path = os.path.normpath(_CONFIG_PATH)
+    if not os.path.exists(path):
+        # Fallback: look next to this file (for tests / flat layouts)
+        path = os.path.join(_HERE, "gmail_labels.json")
     try:
-        from app.infrastructure.external.gmail_client import execute_gmail_api
-    except ImportError:
-        from enterprise_mcp_server.app.infrastructure.external.gmail_client import execute_gmail_api
-
-    LABEL_COLORS = {
-        "Billing":    {"backgroundColor": "#4986e7", "textColor": "#ffffff"},
-        "IT Support": {"backgroundColor": "#a479e2", "textColor": "#ffffff"},
-        "HR":         {"backgroundColor": "#16a765", "textColor": "#ffffff"},
-        "Complaint":  {"backgroundColor": "#fb4c2f", "textColor": "#ffffff"},
-        "Query":      {"backgroundColor": "#ffad47", "textColor": "#000000"},
-        "Escalation": {"backgroundColor": "#cc3a21", "textColor": "#ffffff"},
-        "Other":      {"backgroundColor": "#cccccc", "textColor": "#000000"},
-    }
-
-    # Extract parent category from label (e.g., "Billing" from "Billing/High")
-    parent = label_name.split("/")[0] if "/" in label_name else label_name
-    
-    if parent not in LABEL_COLORS:
-        return
-
-    try:
-        execute_gmail_api(
-            service.users().labels().patch(
-                userId=user_id,
-                id=label_id,
-                body={"color": LABEL_COLORS[parent]}
-            )
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        logger.debug(json.dumps({"event": "label_config_loaded", "path": path}))
+        return cfg
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"gmail_label.json not found at {path}. "
+            "Create config/gmail_label.json or place gmail_label.json next to this file."
         )
-        logger.info(f"Color patched for '{label_name}' ({parent})")
-    except Exception as e:
-        logger.warning(f"Failed to patch color for '{label_name}': {e}")
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"gmail_labels.json contains invalid JSON: {exc}") from exc
+
+
+_CFG = _load_config()
+
 
 # ---------------------------------------------------------------------------
-# Bootstrap
+# BUILD FLAT STRUCTURES FROM JSON
+# These mirror the old hardcoded dicts so all downstream code is unchanged.
 # ---------------------------------------------------------------------------
 
-async def bootstrap_labels(gmail_user_id: str = "me") -> None:
+def _build_hierarchy(labels: list) -> List[Tuple[str, List[str]]]:
     """
-    Ensure all 28 labels exist in Gmail and apply colors to all of them.
+    Recursively flatten the nested JSON label tree into an ordered list of
+    (parent_name, [child_names]) tuples.
+
+    Order: parent always before its children, intermediate before leaves.
+    This is the order Gmail requires for correct nesting.
     """
-    # Import here to avoid circular imports
-    try:
-        from app.infrastructure.external.gmail_client import (
-            get_gmail_service,
-            execute_gmail_api,
-        )
-    except ImportError:
-        from enterprise_mcp_server.app.infrastructure.external.gmail_client import (
-            get_gmail_service,
-            execute_gmail_api,
-        )
+    result: List[Tuple[str, List[str]]] = []
 
-    service = get_gmail_service()
-    resp = execute_gmail_api(service.users().labels().list(userId=gmail_user_id))
-    existing: Dict[str, str] = {
-        lbl["name"]: lbl["id"] for lbl in resp.get("labels", [])
-    }
-    
-    _label_cache.clear()
-    _managed_label_ids.clear()
-    _label_cache.update(existing)
+    def walk(nodes: list) -> None:
+        for node in nodes:
+            name      = node["name"]
+            children  = node.get("children", [])
+            child_names = [c["name"] for c in children]
+            result.append((name, child_names))
+            if children:
+                walk(children)          # recurse for grandchildren
 
-    for cat in CATEGORIES:
-        if cat not in existing:
-            body = {"name": cat}
-            lbl = execute_gmail_api(service.users().labels().create(
-                userId=gmail_user_id, body=body
-            ))
-            _label_cache[cat] = lbl["id"]
-        
-        # Apply or patch colors for ALL category labels (both new and existing)
-        _patch_label_color(service, gmail_user_id, _label_cache[cat], cat)
-        _managed_label_ids.append(_label_cache[cat])
+    walk(labels)
+    return result
 
-        for prio in PRIORITIES:
-            full_name = f"{cat}/{prio}"
-            if full_name not in existing:
-                lbl = execute_gmail_api(service.users().labels().create(
-                    userId=gmail_user_id, body={"name": full_name}
-                ))
-                _label_cache[full_name] = lbl["id"]
-            _managed_label_ids.append(_label_cache[full_name])
 
-    logger.info(f"Bootstrap complete. {len(_managed_label_ids)} labels managed. Colors applied.")
+def _build_color_map(labels: list) -> Dict[str, Dict[str, str]]:
+    """Flatten nested JSON into {label_name: {backgroundColor, textColor}}."""
+    colors: Dict[str, Dict[str, str]] = {}
+
+    def walk(nodes: list) -> None:
+        for node in nodes:
+            if "color" in node:
+                colors[node["name"]] = node["color"]
+            if "children" in node:
+                walk(node["children"])
+
+    walk(labels)
+    return colors
+
+
+# Build once at import — used by all functions below
+LABEL_HIERARCHY: List[Tuple[str, List[str]]] = _build_hierarchy(_CFG["labels"])
+LABEL_COLORS:    Dict[str, Dict[str, str]]   = _build_color_map(_CFG["labels"])
+_LABEL_ALIAS:    Dict[str, str]              = {
+    k: v for k, v in _CFG.get("alias_map", {}).items()
+    if not k.startswith("_")            # skip _comment keys
+}
+_MANAGED_PREFIXES: Tuple[str, ...] = tuple(_CFG.get("stale_label_prefixes", []))
+
 
 # ---------------------------------------------------------------------------
-# Apply Label
+# PUBLIC API
 # ---------------------------------------------------------------------------
 
-async def apply_classification_label(
+def bootstrap_labels(service: Any) -> Dict[str, str]:
+    """
+    Called once at startup from main.py.
+
+    1. Reload config from JSON (picks up any edits since last boot).
+    2. Delete all stale / previously-managed labels.
+    3. Create parents → children → grandchildren in correct order.
+    4. Return {label_name: gmail_label_id}.
+    """
+    # Reload config so hot-edits to gmail_labels.json take effect on next restart
+    global LABEL_HIERARCHY, LABEL_COLORS, _LABEL_ALIAS, _MANAGED_PREFIXES
+    cfg              = _load_config()
+    LABEL_HIERARCHY  = _build_hierarchy(cfg["labels"])
+    LABEL_COLORS     = _build_color_map(cfg["labels"])
+    _LABEL_ALIAS     = {k: v for k, v in cfg.get("alias_map", {}).items() if not k.startswith("_")}
+    _MANAGED_PREFIXES = tuple(cfg.get("stale_label_prefixes", []))
+
+    logger.info(json.dumps({
+        "event":          "label_bootstrap_started",
+        "config_labels":  len(_all_label_names()),
+        "alias_entries":  len(_LABEL_ALIAS),
+    }))
+
+    _delete_managed_labels(service)
+
+    # Collect all label names in creation order (parents before children)
+    all_labels: List[str] = []
+    seen: set = set()
+    for parent, children in LABEL_HIERARCHY:
+        if parent not in seen:
+            all_labels.append(parent)
+            seen.add(parent)
+        for child in children:
+            if child not in seen:
+                all_labels.append(child)
+                seen.add(child)
+
+    label_map: Dict[str, str] = {}
+    for name in all_labels:
+        label_id = _create_label(service, name)
+        if label_id:
+            label_map[name] = label_id
+            logger.info(json.dumps({"event": "label_created", "label": name}))
+        time.sleep(0.05)   # Gmail API rate-limit safety
+
+    logger.info(json.dumps({
+        "event":   "label_bootstrap_complete",
+        "created": len(label_map),
+    }))
+    return label_map
+
+
+def apply_classification_label(
     message_id: str,
     service: Any,
     email_type: str,
-    priority: str,
-    redis_client: redis.Redis,
-    user_id: str = "me"
+    routing_decision: Optional[str] = None,
+    redis_client: Any = None,
 ) -> bool:
     """
-    Applies classification label with 3-layer prevention.
+    Apply the correct Gmail label to an email after classification.
+
+    Resolution order:
+      1. routing_decision is an exact full label path  → use directly
+      2. routing_decision is a partial team name        → suffix-match
+      3. email_type in alias_map (from JSON)            → mapped label
+      4. email_type directly matches a label name       → use as-is
+      5. Fallback                                       → Customer Support/Customer Issues
     """
-    try:
-        from app.infrastructure.external.gmail_client import execute_gmail_api
-    except ImportError:
-        from enterprise_mcp_server.app.infrastructure.external.gmail_client import execute_gmail_api
+    # Redis dedup — skip if already labeled in last 30 min
+    if redis_client:
+        try:
+            if redis_client.get(f"label:{message_id}"):
+                logger.info(json.dumps({"event": "label_skip_dedup", "message_id": message_id}))
+                return True
+        except Exception as exc:
+            logger.warning(json.dumps({"event": "redis_error", "error": str(exc)}))
 
-    normalised = email_type.lower().strip()
-    if normalised not in TYPE_DISPLAY and normalised in _LEGACY_ALIAS:
-        mapped = _LEGACY_ALIAS[normalised]
-        logger.warning(json.dumps({
-            "event":    "label_category_mapped",
-            "original": email_type,
-            "mapped":   mapped,
-            "action":   "Domain-specific or legacy category mapped to parent domain",
-        }))
-        normalised = mapped
-    elif normalised not in TYPE_DISPLAY:
-        logger.error(json.dumps({
-            "event":    "label_unknown_category",
-            "category": email_type,
-            "action":   "falling back to Other — add to TYPE_DISPLAY or fix prompt",
-        }))
-
-    target_type       = TYPE_DISPLAY.get(normalised, "Other")
-    target_prio       = PRIORITY_DISPLAY.get(priority.lower(), "Medium")
-    target_label_name = f"{target_type}/{target_prio}"
-    
-    target_label_id = _label_cache.get(target_label_name)
-    if not target_label_id:
-        # On-the-fly fetch if cache missed (e.g. worker restarted)
-        resp = execute_gmail_api(service.users().labels().list(userId=user_id))
-        for lbl in resp.get("labels", []):
-            _label_cache[lbl["name"]] = lbl["id"]
-        target_label_id = _label_cache.get(target_label_name)
-
-    if not target_label_id:
-        return False
-
-    # LAYER 1: Redis Lock
-    lock_key = f"label_lock:{message_id}"
-    if not redis_client.set(lock_key, "locked", nx=True, ex=30):
-        return False
+    target = _resolve_label(email_type, routing_decision)
+    logger.info(json.dumps({
+        "event":      "label_apply",
+        "message_id": message_id,
+        "email_type": email_type,
+        "routing":    routing_decision,
+        "label":      target,
+    }))
 
     try:
-        msg = execute_gmail_api(service.users().messages().get(
-            userId=user_id, id=message_id, format="minimal"
-        ))
-        current_labels = msg.get("labelIds", [])
+        all_gmail_labels = service.users().labels().list(userId="me").execute().get("labels", [])
+        label_id = next(
+            (l["id"] for l in all_gmail_labels if l["name"] == target), None
+        )
 
-        # LAYER 3: Idempotency
-        managed_on_msg = [l for l in current_labels if l in _managed_label_ids]
-        if len(managed_on_msg) == 1 and target_label_id in managed_on_msg:
-            return True
+        if not label_id:
+            logger.error(json.dumps({
+                "event": "label_not_found",
+                "label": target,
+                "note":  "Run bootstrap_labels() to recreate from gmail_labels.json",
+            }))
+            return False
 
-        # LAYER 2: Strip and Apply
-        execute_gmail_api(service.users().messages().modify(
-            userId=user_id,
+        service.users().messages().modify(
+            userId="me",
             id=message_id,
-            body={
-                "addLabelIds":    [target_label_id],
-                "removeLabelIds": managed_on_msg,
-            }
-        ))
+            body={"addLabelIds": [label_id]},
+        ).execute()
 
         logger.info(json.dumps({
-            "event":          "label_applied",
-            "message_id":     message_id,
-            "label":          target_label_name,
-            "email_type_raw": email_type,
-            "priority_raw":   priority,
+            "event":      "label_applied",
+            "message_id": message_id,
+            "label":      target,
         }))
+
+        if redis_client:
+            try:
+                redis_client.setex(f"label:{message_id}", 1800, target)
+            except Exception:
+                pass
+
         return True
-    except Exception as e:
-        logger.error(f"Failed to apply label {target_label_name} to {message_id}: {e}")
+
+    except Exception as exc:
+        logger.error(json.dumps({
+            "event":      "label_apply_failed",
+            "message_id": message_id,
+            "label":      target,
+            "error":      str(exc),
+        }))
         return False
+
+
+def get_label_for_category(
+    email_type: str,
+    routing_decision: Optional[str] = None,
+) -> str:
+    """Pure lookup — no API call. Useful for logging and unit tests."""
+    return _resolve_label(email_type, routing_decision)
+
+
+def setup_gmail_labels(service: Any, redis_client: Any = None) -> Dict[str, str]:
+    """
+    Entry point called from main.py at startup:
+
+        from utils.gmail_label_manager import setup_gmail_labels
+        label_map = setup_gmail_labels(gmail_service, redis_client)
+    """
+    return bootstrap_labels(service)
+
+
+def reload_config() -> None:
+    """
+    Force-reload gmail_labels.json without restarting.
+    Call this after editing the JSON file while the server is running.
+    """
+    global LABEL_HIERARCHY, LABEL_COLORS, _LABEL_ALIAS, _MANAGED_PREFIXES
+    cfg               = _load_config()
+    LABEL_HIERARCHY   = _build_hierarchy(cfg["labels"])
+    LABEL_COLORS      = _build_color_map(cfg["labels"])
+    _LABEL_ALIAS      = {k: v for k, v in cfg.get("alias_map", {}).items() if not k.startswith("_")}
+    _MANAGED_PREFIXES = tuple(cfg.get("stale_label_prefixes", []))
+    logger.info(json.dumps({
+        "event":   "label_config_reloaded",
+        "labels":  len(_all_label_names()),
+        "aliases": len(_LABEL_ALIAS),
+    }))
+
+
+# ---------------------------------------------------------------------------
+# INTERNAL HELPERS
+# ---------------------------------------------------------------------------
+
+def _resolve_label(email_type: str, routing_decision: Optional[str]) -> str:
+    valid = _all_label_names()
+
+    # 1. Exact full path
+    if routing_decision and routing_decision in valid:
+        return routing_decision
+
+    # 2. Partial suffix match
+    if routing_decision:
+        for label in valid:
+            if label.endswith(routing_decision) and "/" in label:
+                return label
+
+    # 3. Alias map lookup (loaded from JSON)
+    key = (email_type or "").lower().strip().replace(" ", "_").replace("-", "_")
+    if key in _LABEL_ALIAS:
+        return _LABEL_ALIAS[key]
+
+    # 4. Direct name match
+    if email_type in valid:
+        return email_type
+
+    # 5. Fallback
+    logger.warning(json.dumps({
+        "event":      "label_fallback",
+        "email_type": email_type,
+        "routing":    routing_decision,
+    }))
+    return "Customer Support/Customer Issues"
+
+
+def _all_label_names() -> set:
+    names: set = set()
+    for parent, children in LABEL_HIERARCHY:
+        names.add(parent)
+        names.update(children)
+    return names
+
+
+def _create_label(service: Any, label_name: str) -> Optional[str]:
+    body: Dict[str, Any] = {
+        "name":                  label_name,
+        "labelListVisibility":   "labelShow",
+        "messageListVisibility": "show",
+    }
+    if label_name in LABEL_COLORS:
+        body["color"] = LABEL_COLORS[label_name]
+
+    try:
+        return service.users().labels().create(
+            userId="me", body=body
+        ).execute().get("id")
+    except Exception as exc:
+        err = str(exc)
+        if "already exists" in err.lower() or "409" in err:
+            return _get_existing_label_id(service, label_name)
+        logger.error(json.dumps({
+            "event": "label_create_failed",
+            "label": label_name,
+            "error": err,
+        }))
+        return None
+
+
+def _get_existing_label_id(service: Any, label_name: str) -> Optional[str]:
+    try:
+        for label in service.users().labels().list(userId="me").execute().get("labels", []):
+            if label["name"] == label_name:
+                return label["id"]
+    except Exception as exc:
+        logger.error(json.dumps({
+            "event": "label_lookup_failed",
+            "label": label_name,
+            "error": str(exc),
+        }))
+    return None
+
+
+def _delete_managed_labels(service: Any) -> int:
+    """
+    Delete all labels whose names start with a managed prefix.
+    Sorted deepest-first to avoid Gmail's 'parent has children' error.
+    """
+    try:
+        all_labels = service.users().labels().list(userId="me").execute().get("labels", [])
+    except Exception as exc:
+        logger.error(json.dumps({"event": "label_list_failed", "error": str(exc)}))
+        return 0
+
+    managed = [
+        l for l in all_labels
+        if any(l["name"].startswith(p) for p in _MANAGED_PREFIXES)
+        and l.get("type") != "system"
+    ]
+    managed.sort(key=lambda l: l["name"].count("/"), reverse=True)
+
+    deleted = 0
+    for label in managed:
+        try:
+            service.users().labels().delete(userId="me", id=label["id"]).execute()
+            deleted += 1
+            logger.info(json.dumps({"event": "label_deleted", "label": label["name"]}))
+            time.sleep(0.05)
+        except Exception as exc:
+            logger.warning(json.dumps({
+                "event": "label_delete_failed",
+                "label": label["name"],
+                "error": str(exc),
+            }))
+
+    logger.info(json.dumps({"event": "cleanup_done", "deleted": deleted}))
+    return deleted

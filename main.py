@@ -17,7 +17,7 @@ from celery import Celery
 from config.settings import settings
 from agents.intake_agent import poll_and_ingest
 from agents.sla_agent import SLA_CELERY_BEAT_SCHEDULE
-from utils.gmail_label_manager import bootstrap_labels
+from utils.gmail_label_manager import setup_gmail_labels
 
 # Configure Logging
 logging.basicConfig(
@@ -83,8 +83,14 @@ async def main():
     # This main.py script runs the persistent intake polling loop.
     
     # --- Phase 6: Bootstrap Gmail Labels ---
-    await bootstrap_labels()
-    logger.info("Gmail labels ready (28 total).")
+    try:
+        from app.infrastructure.external.gmail_client import get_gmail_service
+        gmail_service = get_gmail_service()
+        label_map = setup_gmail_labels(gmail_service)
+        logger.info(f"Gmail labels ready ({len(label_map)} total).")
+    except Exception as exc:
+        logger.error(f"Failed to bootstrap Gmail labels: {exc}", exc_info=True)
+        logger.warning("Continuing without label setup - labels may not be applied correctly")
 
     try:
         await polling_loop()
