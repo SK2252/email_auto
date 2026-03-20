@@ -4,8 +4,10 @@ Returns EXACT Gmail sublabel path directly from LLM.
 No alias_map lookup needed — label path is the category itself.
 
 Gmail sublabels covered:
+  IT Support/IT Support Team
   IT Support/Network Ops Team
   IT Support/Security Team
+  IT Support/HR Team
   IT Support/General IT Queue
   Others/Uncategorised
 """
@@ -17,11 +19,12 @@ and classify it into EXACTLY ONE Gmail label path below.
 
 ━━━ AVAILABLE LABELS (choose EXACTLY one) ━━━
 
-  IT Support/General IT Queue
+  IT Support/IT Support Team
     → Password reset, OTP not received, login failure
     → Software bug, application crash, error codes
     → Hardware issue, laptop/printer/monitor problems
-    → General IT issues, unclear or vague IT requests
+    → Laptop slow, device not working, screen issues
+    → General IT issues that need Tier 1 resolution
 
   IT Support/Network Ops Team
     → VPN not connecting, VPN errors (any error code)
@@ -35,31 +38,31 @@ and classify it into EXACTLY ONE Gmail label path below.
     → Permission denied, unauthorised access detected
     → Certificate issues, MFA problems
 
-  IT Support/General IT Queue
-    → Password reset, OTP not received, login failure
-    → Software bug, application crash, error codes
-    → Hardware issue, laptop/printer/monitor problems
-    → IT onboarding/offboarding (new employee setup, device return)
-    → General IT issues, unclear or vague IT requests
+  IT Support/HR Team
+    → IT onboarding (new employee laptop/account setup)
+    → IT offboarding (account deactivation, device return)
+    → New joiner system access provisioning
 
-  Others/Uncategorised
+  IT Support/General IT Queue
     → Vague IT questions with no specific issue
-    → "Can someone help me with IT?" type emails
     → Short/unclear IT-related messages
     → Feedback about IT services
+    → IT questions that don't fit above categories
 
   Others/Uncategorised
     → Email is NOT related to IT at all
+    → HR issues (salary, leave, payroll) — not IT scope
+    → Customer billing, invoices, charges — not IT scope
+    → Warranty claims, product issues — not IT scope
     → News articles, personal emails, spam
-    → HR issues (salary, leave) — not IT's scope
-    → Business/billing queries — not IT's scope
 
 ━━━ DECISION RULES ━━━
 1. Read the FULL body — subject alone can be misleading
 2. VPN / network / connectivity → ALWAYS Network Ops Team
-3. Access request / security incident / phishing → ALWAYS Security Team
-4. Password / hardware / software / onboarding / general IT → ALWAYS General IT Queue
-5. Non-IT content → ALWAYS Others/Uncategorised
+3. Password / login / OTP / hardware / software / laptop → ALWAYS IT Support Team
+4. Access request / security incident / phishing → ALWAYS Security Team
+5. IT onboarding / offboarding → ALWAYS HR Team
+6. Non-IT content (billing, HR, warranty, product) → ALWAYS Others/Uncategorised
 
 ━━━ PRIORITY ━━━
   high   → blocking work, cannot login, VPN down, data loss, error codes
@@ -78,15 +81,16 @@ Output ONLY this JSON — no markdown, no extra text, no explanation:
   "ticket_type":     "<incident | service_request | null>"
 }
 
-CRITICAL — category field rules:
-  The value MUST be copied EXACTLY from this list — no extra words:
-    "IT Support/Network Ops Team"
-    "IT Support/Security Team"
-    "IT Support/General IT Queue"
-    "Others/Uncategorised"
+CRITICAL — category MUST be one of these EXACT strings — nothing more:
+  "IT Support/IT Support Team"
+  "IT Support/Network Ops Team"
+  "IT Support/Security Team"
+  "IT Support/HR Team"
+  "IT Support/General IT Queue"
+  "Others/Uncategorised"
 
-  ✅ CORRECT: "IT Support/General IT Queue"
-  ❌ WRONG:   "IT Support/General IT Queue → Hardware issue"
+  ✅ CORRECT: "IT Support/IT Support Team"
+  ❌ WRONG:   "IT Support/IT Support Team → Hardware issue"
   ❌ WRONG:   any text after the label path
 
 ticket rules:

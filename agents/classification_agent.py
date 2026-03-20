@@ -46,6 +46,7 @@ from prompts.classification_prompt import (
 from state.shared_state import AgentState
 from utils.domain_loader import get_sla_seconds
 from utils.retry_utils import retry_with_backoff, send_to_dead_letter_queue
+from agents.agent_metrics import instrument_agent
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +379,7 @@ async def _async_update_email(
 # ---------------------------------------------------------------------------
 # AG-02 LANGGRAPH NODE  — must be async def (BUG-2 FIX)
 # ---------------------------------------------------------------------------
+@instrument_agent("AG-02")
 async def classification_node(state: AgentState) -> Dict[str, Any]:
     """
     LangGraph node for AG-02.

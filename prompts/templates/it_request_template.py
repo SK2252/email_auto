@@ -5,72 +5,56 @@ Used by AG-04 (ResponseAgent) when category is one of:
   password_reset, hardware_issue, software_bug, network_issue, access_request, etc.
 """
 
-IT_REQUEST_TEMPLATE = (
-    "Thank you for contacting the IT Support team.\n\n"
-    "Your request has been logged under Case Reference: {case_id}.\n\n"
-    "Ticket Type  : {ticket_type}\n"
-    "Priority     : {priority}\n"
-    "Expected SLA : {sla_bucket}\n\n"
-    "{resolution_hint}"
-    "\n\n"
-    "Our team will follow up with you shortly. For urgent production issues, "
-    "please also call the IT Hotline at ext. 999.\n\n"
-    "Case Reference: {case_id}"
-)
+IT_REQUEST_TEMPLATE = """
+Dear {customer_name},
 
-_RESOLUTION_HINTS = {
-    "password_reset": (
-        "In the meantime, you can self-serve a password reset via the IT portal at "
-        "https://itportal.internal/reset"
-    ),
-    "hardware_issue": (
-        "If possible, please note the asset tag (found on a sticker on the device) "
-        "and include it in any follow-up reply."
-    ),
-    "software_bug": (
-        "Please provide the exact error message and steps to reproduce when our engineer "
-        "follows up."
-    ),
-    "network_issue": (
-        "Please try restarting your network adapter and router as a first step. "
-        "Note your current IP address (run: ipconfig) for our diagnostics."
-    ),
-    "access_request": (
-        "Access requests require manager approval. Please ensure your line manager has "
-        "submitted an approval via the IT portal before we can proceed."
-    ),
-}
+Thank you for contacting the IT Support team at {company_name}.
 
+Your request regarding "{subject_summary}" has been logged under case **{case_reference}**.
 
-def build_it_request_response(
-    case_id: str,
-    category: str = "technical_issue",
-    priority: str = "medium",
-    sla_bucket: str = "8 hours",
-    ticket_type: str = "service_request",
-    customer_name: str = "",
-) -> str:
-    """
-    Render an IT support request acknowledgement.
+Ticket Type  : {ticket_type}
+Priority     : {priority}
+Expected SLA : {response_sla}
 
-    Args:
-        case_id:       Unique case reference ID.
-        category:      Email category (used to select resolution hint).
-        priority:      Priority level (high / medium / low).
-        sla_bucket:    Expected response window.
-        ticket_type:   ITSM ticket type (incident / service_request).
-        customer_name: Optional requester name for personalisation.
+{resolution_hint}
 
-    Returns:
-        Formatted IT ACK string ready to send.
-    """
-    greeting = f"Dear {customer_name},\n\n" if customer_name else ""
-    resolution_hint = _RESOLUTION_HINTS.get(category, "Our team will be in touch soon.")
-    body = IT_REQUEST_TEMPLATE.format(
-        case_id=case_id,
-        ticket_type=ticket_type.replace("_", " ").title(),
-        priority=priority.upper(),
-        sla_bucket=sla_bucket,
-        resolution_hint=resolution_hint,
-    )
-    return greeting + body
+Our team will follow up with you shortly. For urgent production issues, 
+please also call the IT Hotline at ext. 999.
+
+Best regards,
+{agent_name}
+{company_name}
+""".strip()
+
+REQUIRED_SLOTS = [
+    "customer_name",
+    "company_name",
+    "subject_summary",
+    "case_reference",
+    "ticket_type",
+    "priority",
+    "response_sla",
+    "resolution_hint",
+    "agent_name",
+]
+
+FILL_PROMPT = """
+Fill the IT support request acknowledgement template below.
+Fill ONLY the named placeholders. Do NOT modify template structure.
+
+Template:
+{template}
+
+Context:
+- Customer name: {customer_name}
+- Company name: {company_name}
+- Subject summary: {subject_summary}
+- Case reference: {case_reference}
+- Ticket type (e.g. Service Request, Incident): {ticket_type}
+- Priority: {priority}
+- Response SLA: {response_sla}
+- Resolution hint (optional self-serve steps, 1-2 sentences): {resolution_hint}
+- Agent name: {agent_name}
+
+Return ONLY the filled template. No JSON, no extra text.
+""".strip()

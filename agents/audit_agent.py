@@ -21,6 +21,7 @@ import logging
 import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from agents.agent_metrics import instrument_agent
 
 logger = logging.getLogger(__name__)
 
@@ -87,32 +88,60 @@ class AuditWriter:
 
     def _persist_to_db(self, event: Dict[str, Any]) -> None:
         """
-        Sync wrapper: INSERT INTO audit_log (email_id, agent_id, event_type, payload) VALUES (...)
-        This is an APPEND-ONLY insert — no UPDATE, no DELETE ever.
+        Sync wrapper for background thread.
+        Creates its own event loop — asyncio.run() crashes if called from
+        a thread that already has a running loop, so we manage it explicitly.
+        APPEND-ONLY insert — no UPDATE, no DELETE ever.
         """
         import asyncio
-        asyncio.run(self._async_persist_to_db(event))
+        # Background flush thread has no event loop — create one explicitly
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError("loop closed")
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        loop.run_until_complete(self._async_persist_to_db(event))
 
     async def _async_persist_to_db(self, event: Dict[str, Any]) -> None:
-        """Real asyncpg write."""
+        """
+        Real asyncpg write with orphan guard.
+        FIX: if email_id is not present in emails table (FK violation would occur),
+        discard the event and log — never buffer it for infinite retry.
+        """
         import asyncpg
         from config.settings import settings
 
         db_url = getattr(settings, "DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
-        
-        # event might have email_id as string, but the DB expects UUID. asyncpg handles string to UUID auto-cast
-        # if the column is UUID, but it's safer to let Postgres cast it if needed.
-        email_id = event.get("email_id")
-        agent_id = event.get("agent_id", "UNKNOWN")
+
+        email_id   = event.get("email_id")
+        agent_id   = event.get("agent_id", "UNKNOWN")
         event_type = event.get("type", "unknown")
         payload_str = json.dumps(event.get("payload", {}))
-        
+
         conn = await asyncpg.connect(db_url)
         try:
-            # We cast $1::uuid to ensure asyncpg passes it correctly to the UUID column if email_id is provided
+            # ORPHAN GUARD — check email exists before inserting audit record
+            # Prevents infinite retry loop when email row was never committed or was cleaned up
+            if email_id:
+                row = await conn.fetchrow(
+                    "SELECT 1 FROM emails WHERE email_id = $1::uuid LIMIT 1",
+                    email_id
+                )
+                if row is None:
+                    logger.warning(json.dumps({
+                        "event":      "audit_event_discarded_orphan",
+                        "reason":     "email_id not found in emails table — FK would fail",
+                        "email_id":   email_id,
+                        "event_type": event_type,
+                        "agent_id":   agent_id,
+                    }))
+                    return  # discard — do NOT raise, do NOT buffer
+
             await conn.execute(
                 """
-                INSERT INTO audit_log (email_id, agent_id, event_type, payload) 
+                INSERT INTO audit_log (email_id, agent_id, event_type, payload)
                 VALUES ($1::uuid, $2, $3, $4::jsonb)
                 """,
                 email_id, agent_id, event_type, payload_str
@@ -143,27 +172,41 @@ class AuditWriter:
                 return
             pending = list(self._in_memory_buffer)
 
-        try:
-            for event in pending:
-                self._persist_to_db(event)  # raises on failure
+        flushed  = 0
+        discarded = 0
+        failed    = 0
 
-            # All written — clear buffer
-            with self._lock:
-                # Remove only the events we successfully flushed
-                for event in pending:
+        for event in pending:
+            try:
+                self._persist_to_db(event)  # orphans are silently discarded inside
+                # If no exception → either written or discarded (both = remove from buffer)
+                with self._lock:
                     if event in self._in_memory_buffer:
                         self._in_memory_buffer.remove(event)
+                flushed += 1
+            except Exception as exc:
+                # Genuine DB error (not FK orphan) — keep in buffer, mark DB unavailable
+                logger.warning(json.dumps({
+                    "event":   "audit_flush_event_failed",
+                    "error":   str(exc),
+                    "email_id": event.get("email_id"),
+                }))
+                self._db_available = False
+                failed += 1
 
+        if flushed > 0:
             self._db_available = True
-            logger.info(
-                json.dumps({"event": "audit_buffer_flushed", "events_flushed": len(pending)})
-            )
-
-        except Exception as exc:
-            logger.warning(
-                json.dumps({"event": "audit_flush_failed", "error": str(exc), "pending": len(pending)})
-            )
-            self._db_available = False
+            logger.info(json.dumps({
+                "event":    "audit_buffer_flushed",
+                "flushed":  flushed,
+                "discarded": discarded,
+                "failed":   failed,
+            }))
+        elif failed > 0:
+            logger.warning(json.dumps({
+                "event":   "audit_flush_partial_failure",
+                "pending": failed,
+            }))
 
 
 # Singleton writer — shared across all nodes
@@ -173,6 +216,7 @@ _writer = AuditWriter()
 # ---------------------------------------------------------------------------
 # AG-06 LangGraph node
 # ---------------------------------------------------------------------------
+@instrument_agent("AG-06")
 def audit_node(state: dict) -> Dict[str, Any]:
     """
     Drains state.event_queue → persist via AuditWriter.

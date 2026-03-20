@@ -40,6 +40,7 @@ from state.shared_state import AgentState
 from utils.domain_loader import is_auto_send_permitted
 from utils.pii_scanner import PIIScanner
 from utils.retry_utils import retry_with_backoff
+from agents.agent_metrics import instrument_agent
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +251,7 @@ async def _send_email(parsed_email: Dict[str, Any], draft: str, case_ref: str) -
 # AG-04 LangGraph node
 # ---------------------------------------------------------------------------
 
+@instrument_agent("AG-04")
 async def response_node(state: AgentState) -> Dict[str, Any]:
     """
     Main LangGraph node for AG-04.

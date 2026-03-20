@@ -39,6 +39,7 @@ from config.settings import settings
 from mcp_tools.llm_client import LLMProvider, call_llm
 from prompts.routing_prompt import build_routing_prompts
 from state.shared_state import AgentState
+from agents.agent_metrics import instrument_agent
 
 logger = logging.getLogger(__name__)
 
@@ -487,6 +488,7 @@ def _write_routing_to_db(
 # AG-03 Main LangGraph Node
 # ---------------------------------------------------------------------------
 
+@instrument_agent("AG-03")
 def routing_node(state: AgentState) -> Dict[str, Any]:
     """
     LangGraph node for AG-03.

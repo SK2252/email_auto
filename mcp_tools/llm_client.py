@@ -86,14 +86,38 @@ def _call_openai_compat(
         "max_tokens": max_tokens,
     }
 
-    resp = httpx.post(
-        f"{base_url}/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    import mlflow
+    
+    with mlflow.start_span(
+        name="groq_llm_call",
+        span_type="LLM",
+        attributes={
+            "model": model,
+            "provider": "groq",
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+    ) as llm_span:
+        resp = httpx.post(
+            f"{base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        
+        data = resp.json()
+        usage = data.get("usage")
+        if usage:
+            # CRITICAL: Use exact MLflow attribute names for token split chart
+            llm_span.set_attribute("mlflow.spanInputTokens", usage.get("prompt_tokens", 0))
+            llm_span.set_attribute("mlflow.spanOutputTokens", usage.get("completion_tokens", 0))
+            llm_span.set_attribute("mlflow.spanTotalTokens", usage.get("total_tokens", 0))
+            # Keep human-readable versions too for custom charts
+            llm_span.set_attribute("provider", "groq")
+            llm_span.set_attribute("model", model)
+            
+        return data["choices"][0]["message"]["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -111,16 +135,36 @@ def _call_gemini(
     Converts chat-style messages to a single prompt string for simplicity.
     """
     import google.generativeai as genai  # pip install google-generativeai
+    import mlflow
 
     genai.configure(api_key=api_key)
     gen_model = genai.GenerativeModel(model_name=model)
-    response = gen_model.generate_content(
-        prompt,
-        generation_config=genai.types.GenerationConfig(
-            temperature=temperature, max_output_tokens=max_tokens
-        ),
-    )
-    return response.text
+    
+    with mlflow.start_span(
+        name="gemini_llm_call",
+        span_type="LLM",
+        attributes={
+            "model": model,
+            "provider": "gemini",
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+    ) as llm_span:
+        response = gen_model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=temperature, max_output_tokens=max_tokens
+            ),
+        )
+        
+        if getattr(response, "usage_metadata", None):
+            llm_span.set_attribute("mlflow.spanInputTokens", response.usage_metadata.prompt_token_count)
+            llm_span.set_attribute("mlflow.spanOutputTokens", response.usage_metadata.candidates_token_count)
+            llm_span.set_attribute("mlflow.spanTotalTokens", response.usage_metadata.total_token_count)
+            llm_span.set_attribute("provider", "gemini")
+            llm_span.set_attribute("model", model)
+
+        return response.text
 
 
 # ---------------------------------------------------------------------------

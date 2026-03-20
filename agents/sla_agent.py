@@ -42,6 +42,7 @@ import redis as redis_lib
 from celery import shared_task
 
 from config.settings import settings
+from agents.agent_metrics import instrument_agent
 
 logger = logging.getLogger(__name__)
 
@@ -463,6 +464,7 @@ def _check_email_sla(
     default_retry_delay=60,
     acks_late=True,                     # re-queue on worker crash
 )
+@instrument_agent("AG-05")
 def sla_check_all_open_emails(self) -> Dict[str, Any]:
     """
     Celery beat task: runs every 5 minutes.

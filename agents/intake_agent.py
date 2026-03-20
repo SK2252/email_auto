@@ -21,6 +21,8 @@ from utils.retry_utils import DeadLetterError, retry_with_backoff, send_to_dead_
 
 import asyncpg
 
+from agents.agent_metrics import instrument_agent
+
 logger = logging.getLogger(__name__)
 
 
@@ -393,7 +395,7 @@ normaliser = EmailNormaliser()
 ack_engine  = AckEngine()
 att_handler = AttachmentHandler()
 
-
+@instrument_agent("AG-01")
 async def intake_node(state: AgentState) -> Dict[str, Any]:
     """
     LangGraph node function for AG-01.

@@ -48,7 +48,7 @@ from .customer_support_prompt import (
 # ---------------------------------------------------------------------------
 # Response templates (structured, non-LLM fallback templates)
 # ---------------------------------------------------------------------------
-from .templates import build_template
+from .templates import get_template
 
 __all__ = [
     # Generic
@@ -75,5 +75,5 @@ __all__ = [
     "CUSTOMER_SUPPORT_SYSTEM_PROMPT",
     "CUSTOMER_SUPPORT_USER_PROMPT",
     # Templates
-    "build_template",
+    "get_template",
 ]

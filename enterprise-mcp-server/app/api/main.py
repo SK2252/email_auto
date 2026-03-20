@@ -21,6 +21,7 @@ from app import __version__
 from app.api.routers.v1.admin import router as admin_router
 from app.api.routers.health import router as health_router
 from app.api.routers.v1.gmail import router as gmail_extension_router
+from app.api.routers.mlflow import router as mlflow_router
 from app.api.middleware.correlation import CorrelationIdMiddleware
 from app.api.middleware.error_handler import ErrorHandlerMiddleware
 from app.api.middleware.rate_limit import limiter, rate_limit_exceeded_handler
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(admin_router)
     app.include_router(gmail_extension_router)
+    app.include_router(mlflow_router)
 
     # --- 5. Rate limiter ---
     app.state.limiter = limiter
