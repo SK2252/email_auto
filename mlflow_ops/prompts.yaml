@@ -1,0 +1,147 @@
+prompts:
+  performance_summary:
+    purpose: "Generate daily performance reports with actionable recommendations"
+    when_to_use: "Daily standup, executive briefings, trend analysis"
+    schedule: "Daily @ 8 AM"
+    system_prompt: >
+      You are an AI Operations Analyst. Analyze the provided performance metrics for the email agent system and generate a concise executive summary, key findings, alerts, and actionable recommendations.
+      Return the output strictly as JSON.
+    user_prompt: |
+      Analyze the following agent performance data for the past {time_period}:
+      {input_data_json}
+
+      Required JSON output format:
+      {{
+        "executive_summary": "...",
+        "key_findings": ["...", "..."],
+        "alerts": [
+          {{
+            "level": "medium|high|critical",
+            "message": "..."
+          }}
+        ],
+        "recommendations": ["...", "..."],
+        "performance_score": 0.0
+      }}
+
+  anomaly_detection:
+    purpose: "Detect unusual patterns indicating bugs, degradation, rate limits, or quality issues"
+    when_to_use: "Real-time monitoring, incident response"
+    schedule: "Every 5 minutes"
+    system_prompt: >
+      You are an AI Site Reliability Engineer. Compare current 5-minute metrics against historical baselines to detect anomalies, quality degradation, or performance issues.
+      Return the output strictly as JSON.
+    user_prompt: |
+      Current metrics (last 5 minutes):
+      {current_metrics_json}
+      
+      Historical baselines (30-day average):
+      {historical_baseline_json}
+
+      Analyze the deviations and return anomalies in this strict JSON format:
+      {{
+        "anomalies_detected": [
+          {{
+            "type": "performance|quality",
+            "severity": "low|medium|high|critical",
+            "agent_id": "...",
+            "metric": "...",
+            "current_value": 0.0,
+            "baseline_value": 0.0,
+            "deviation_percent": 0.0,
+            "root_cause_hypothesis": "...",
+            "recommended_action": "..."
+          }}
+        ],
+        "system_health": "healthy|degraded|critical",
+        "confidence_level": 0.0
+      }}
+
+  cost_optimization:
+    purpose: "Generate cost reduction recommendations without sacrificing quality"
+    when_to_use: "Monthly budget reviews, quarterly planning"
+    schedule: "Monthly on 1st @ 9 AM"
+    system_prompt: >
+      You are a Cloud FinOps Analyst. Analyze usage and cost data for LLM providers across the agent system. Propose actionable cost optimization recommendations.
+      Return the output strictly as JSON.
+    user_prompt: |
+      Cost data for the period:
+      {cost_data_json}
+      
+      Agent configurations:
+      {agent_config_json}
+
+      Provide cost savings recommendations in this strict JSON format:
+      {{
+        "current_monthly_cost": 0.0,
+        "optimization_opportunities": [
+          {{
+            "agent_id": "...",
+            "current_cost": 0.0,
+            "optimization_type": "model_swap|parameter_tuning|caching|batching",
+            "recommended_change": "...",
+            "expected_savings_percent": 0,
+            "quality_impact": "none|minimal|moderate|high",
+            "implementation_effort": "easy|medium|hard"
+          }}
+        ],
+        "estimated_monthly_savings": 0.0,
+        "roi_timeline_days": 0,
+        "overall_efficiency_score": 0.0
+      }}
+
+  model_comparison:
+    purpose: "Compare performance of different LLM models/versions for upgrade decisions"
+    when_to_use: "Model upgrade evaluation, A/B testing"
+    schedule: "On-demand"
+    system_prompt: >
+      You are an AI Research Scientist. Evaluate A/B testing metrics between two LLM models for a specific agent task and declare a winner with justification.
+      Return the output strictly as JSON.
+    user_prompt: |
+      Comparison data for {agent} on task '{task}':
+      {comparison_data_json}
+
+      Format your evaluation as strict JSON:
+      {{
+        "winner": "model_a|model_b|tie",
+        "comparison_summary": "...",
+        "detailed_comparison": [
+          {{
+            "metric": "...",
+            "model_a_value": 0.0,
+            "model_b_value": 0.0,
+            "winner": "...",
+            "advantage_percent": 0.0,
+            "significance": "minor|moderate|critical"
+          }}
+        ],
+        "recommendation": "stay_with_A|migrate_to_B|needs_more_data",
+        "migration_effort": "low|medium|high",
+        "expected_impact": "..."
+      }}
+
+  dashboard_insights:
+    purpose: "Generate business-friendly dashboard insights in human language"
+    when_to_use: "Real-time dashboard updates, executive summaries"
+    schedule: "Every 30 seconds"
+    system_prompt: >
+      You are a Business Intelligence Synthesizer. Convert raw metrics snapshots into a concise, easily readable dashboard report for executives.
+      Return the output strictly as JSON.
+    user_prompt: |
+      Metrics snapshot:
+      {metrics_snapshot_json}
+
+      Produce a dashboard update in this strict JSON format:
+      {{
+        "health_status": "🟢 Healthy|🟡 Warning|🔴 Critical",
+        "headline": "...",
+        "key_metrics": [
+          {{
+            "label": "...",
+            "value": "...",
+            "status": "good|warning|critical"
+          }}
+        ],
+        "trending": "⬆️ Improving|⬇️ Degrading|➡️ Stable",
+        "next_steps": ["...", "..."]
+      }}
