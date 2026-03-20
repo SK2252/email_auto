@@ -168,12 +168,18 @@ async def apply_label_node(state: AgentState) -> Dict[str, Any]:
     redis_client = redis.from_url(settings.CELERY_BROKER_URL)
     service      = get_gmail_service()
 
-    await apply_classification_label(
-        message_id   = gmail_message_id,
-        service      = service,
-        email_type   = classification.get("category", "other"),
-        priority     = classification.get("priority", "medium"),
-        redis_client = redis_client,
+    # FIX 1: removed priority= — not in function signature
+    # FIX 2: removed await — function is sync not async
+    routing_decision = (
+        classification.get("routing_decision")
+        or state.get("routing_decision")
+    )
+    apply_classification_label(
+        message_id       = gmail_message_id,
+        service          = service,
+        email_type       = classification.get("category", "other"),
+        routing_decision = routing_decision,
+        redis_client     = redis_client,
     )
 
     # Route to human_review if confidence < 0.7, else routing

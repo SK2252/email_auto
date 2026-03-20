@@ -1,38 +1,52 @@
 """
 prompts/templates/__init__.py
-Template registry — maps classification category to the correct template module.
-Used by response_agent.py to pick the right template before calling Gemini.
+Email response template registry.
+Import individual templates or use build_template() for dynamic dispatch.
 """
-from prompts.templates.query_response_template import (
-    QUERY_TEMPLATE,          FILL_PROMPT as QUERY_FILL_PROMPT,
-    REQUIRED_SLOTS as QUERY_SLOTS,
-)
-from prompts.templates.billing_ack_template import (
-    BILLING_ACK_TEMPLATE,    FILL_PROMPT as BILLING_FILL_PROMPT,
-    REQUIRED_SLOTS as BILLING_SLOTS,
-)
-from prompts.templates.it_request_template import (
-    IT_REQUEST_TEMPLATE,     FILL_PROMPT as IT_FILL_PROMPT,
-    REQUIRED_SLOTS as IT_SLOTS,
-)
-from prompts.templates.hr_query_template import (
-    HR_QUERY_TEMPLATE,       FILL_PROMPT as HR_FILL_PROMPT,
-    REQUIRED_SLOTS as HR_SLOTS,
-)
+from .billing_ack_template import BILLING_ACK_TEMPLATE, build_billing_ack
+from .hr_query_template import HR_QUERY_TEMPLATE, build_hr_query_response
+from .it_request_template import IT_REQUEST_TEMPLATE, build_it_request_response
+from .query_response_template import QUERY_RESPONSE_TEMPLATE, build_query_response
 
-# Registry: classification category → (template_str, fill_prompt, required_slots)
-TEMPLATE_REGISTRY = {
-    "inquiry":      (QUERY_TEMPLATE,      QUERY_FILL_PROMPT,   QUERY_SLOTS),
-    "info_request": (QUERY_TEMPLATE,      QUERY_FILL_PROMPT,   QUERY_SLOTS),
-    "billing":      (BILLING_ACK_TEMPLATE, BILLING_FILL_PROMPT, BILLING_SLOTS),
-    "technical_issue": (IT_REQUEST_TEMPLATE, IT_FILL_PROMPT,   IT_SLOTS),
-    "hr_query":     (HR_QUERY_TEMPLATE,   HR_FILL_PROMPT,      HR_SLOTS),
+__all__ = [
+    "BILLING_ACK_TEMPLATE",
+    "HR_QUERY_TEMPLATE",
+    "IT_REQUEST_TEMPLATE",
+    "QUERY_RESPONSE_TEMPLATE",
+    "build_billing_ack",
+    "build_hr_query_response",
+    "build_it_request_response",
+    "build_query_response",
+]
+
+
+_TEMPLATE_MAP = {
+    "billing":         build_billing_ack,
+    "invoice_dispute": build_billing_ack,
+    "hr":              build_hr_query_response,
+    "leave_request":   build_hr_query_response,
+    "payroll_query":   build_hr_query_response,
+    "password_reset":  build_it_request_response,
+    "hardware_issue":  build_it_request_response,
+    "software_bug":    build_it_request_response,
+    "network_issue":   build_it_request_response,
+    "access_request":  build_it_request_response,
+    "query":           build_query_response,
+    "general_query":   build_query_response,
+    "info_request":    build_query_response,
 }
 
 
-def get_template(category: str):
+def build_template(category: str, **kwargs) -> str:
     """
-    Returns (template_str, fill_prompt, required_slots) for the given category.
-    Falls back to the generic query template if category has no specific template.
+    Dispatch to the correct template builder by email category.
+
+    Args:
+        category: Classified email category (e.g. 'billing', 'hr').
+        **kwargs: Template-specific keyword arguments forwarded to builder.
+
+    Returns:
+        Rendered template string.
     """
-    return TEMPLATE_REGISTRY.get(category, (QUERY_TEMPLATE, QUERY_FILL_PROMPT, QUERY_SLOTS))
+    builder = _TEMPLATE_MAP.get(category, build_query_response)
+    return builder(**kwargs)

@@ -131,6 +131,7 @@ def call_llm(
     messages: List[Dict[str, str]],   # [{"role": "system"|"user", "content": "..."}]
     temperature: float = 0.2,
     max_tokens: int = 1024,
+    model_override: str = "",
 ) -> str:
     """
     Route an LLM call to the correct provider.
@@ -161,7 +162,7 @@ def call_llm(
         limiter = _get_limiter("groq", settings.GROQ_RPM_LIMIT)
         
         models_to_try = [
-            settings.GROQ_MODEL,
+            model_override if model_override else settings.GROQ_MODEL,
             getattr(settings, "GROQ_FALLBACK_1", None),
             getattr(settings, "GROQ_FALLBACK_2", None)
         ]

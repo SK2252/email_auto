@@ -54,6 +54,67 @@ _FRESHDESK  = "freshdesk"
 # Rule matrix: category → routing metadata
 # team name always resolved from domain_config['routing_rules'] at runtime
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Semantic intent → Gmail label path mapping
+# Used when category is not in domain routing_rules.
+# Covers all LLM output variants — no keyword matching needed.
+# ---------------------------------------------------------------------------
+_SEMANTIC_LABEL_MAP: Dict[str, str] = {
+    "hr":                   "HR/HR Operations",
+    "hr_issue":             "HR/HR Operations",
+    "leave":                "HR/HR Operations",
+    "leave_request":        "HR/HR Operations",
+    "employee_policy":      "HR/HR Operations",
+    "grievance":            "HR/HR Operations",
+    "harassment":           "HR/HR Operations",
+    "policy_clarification": "HR/HR Operations",
+    "benefits_query":       "HR/HR Operations",
+    "offboarding":          "HR/HR Operations",
+    "payroll":              "HR/Payroll Team",
+    "payroll_query":        "HR/Payroll Team",
+    "salary_issue":         "HR/Payroll Team",
+    "salary":               "HR/Payroll Team",
+    "salary_query":         "HR/Payroll Team",
+    "recruitment":          "HR/Recruitment Team",
+    "hiring":               "HR/Recruitment Team",
+    "headcount":            "HR/Recruitment Team",
+    "interview":            "HR/Recruitment Team",
+    "offer_letter":         "HR/Employee Relations",
+    "employee_relations":   "HR/Employee Relations",
+    "appraisal":            "HR/Employee Relations",
+    "it":                   "IT Support/General IT Queue",
+    "password_reset":       "IT Support/General IT Queue",
+    "software_bug":         "IT Support/General IT Queue",
+    "hardware_issue":       "IT Support/General IT Queue",
+    "software_issue":       "IT Support/General IT Queue",
+    "access_denied":        "IT Support/General IT Queue",
+    "access_request":       "IT Support/Security Team",
+    "security_incident":    "IT Support/Security Team",
+    "network_issue":        "IT Support/Network Ops Team",
+    "vpn_issue":            "IT Support/Network Ops Team",
+    "connectivity":         "IT Support/Network Ops Team",
+    "onboarding":           "HR/Recruitment Team",
+    "general_query":        "IT Support/General IT Queue",
+    "billing":              "Customer Support/Customer Issues",
+    "invoice":              "Customer Support/Customer Issues",
+    "payment":              "Customer Support/Customer Issues",
+    "refund_request":       "Customer Support/Customer Issues",
+    "overcharge":           "Customer Support/Customer Issues",
+    "complaint":            "Customer Support/Customer Issues",
+    "query":                "Customer Support/Customer Issues",
+    "info_request":         "Customer Support/Customer Issues",
+    "escalation":           "Customer Support/Customer Issues",
+    "product_support":      "Customer Support/Product Support",
+    "product_issue":        "Customer Support/Product Support",
+    "warranty":             "Customer Support/Warranty",
+    "warranty_claim":       "Customer Support/Warranty",
+    "other":                "Others/Uncategorised",
+    "others":               "Others/Uncategorised",
+    "spam":                 "Others/Uncategorised",
+    "unknown":              "Others/Uncategorised",
+}
+
+
 _RULE_MATRIX: Dict[str, Dict[str, Any]] = {
     # --- Billing ---
     "billing":              {"ticket": _SERVICENOW, "team_lead": False},
@@ -172,31 +233,36 @@ def _resolve_team(
     Returns (team, reason).
     """
     if domain_config:
-        # Primary: look in routing_teams dict (DEFAULT_DOMAIN_CONFIG format)
-        routing_teams = domain_config.get("routing_teams", {})
-        if isinstance(routing_teams, dict):
-            team = routing_teams.get(category)
-            if team:
-                return team, f"Matched routing_teams['{category}']"
-        # Secondary: look in routing_rules dict (legacy domain format)
+        # Primary: routing_rules → exact Gmail label path
         routing_rules = domain_config.get("routing_rules", {})
         if isinstance(routing_rules, dict):
             team = routing_rules.get(category)
             if team:
-                return team, f"Matched routing_rules['{category}']"
+                return team, f"domain routing_rules['{category}']"
+        # Secondary: routing_teams dict
+        routing_teams = domain_config.get("routing_teams", {})
+        if isinstance(routing_teams, dict):
+            team = routing_teams.get(category)
+            if team:
+                return team, f"domain routing_teams['{category}']"
 
-    # Unknown email type OR unknown domain → always Team Lead
-    reason = (
-        f"Unknown email type '{category}' "
-        f"or unknown domain — escalated to Team Lead"
-    )
+    # Semantic fallback — covers all LLM output variants
+    if category in _SEMANTIC_LABEL_MAP:
+        label = _SEMANTIC_LABEL_MAP[category]
+        logger.info(json.dumps({
+            "event":    "routing_semantic_match",
+            "category": category,
+            "label":    label,
+        }))
+        return label, f"semantic_label_map['{category}']"
+
+    # Final fallback — unknown category → uncategorised, never Team Lead
     logger.warning(json.dumps({
-        "event":    "routing_team_lead_fallback",
+        "event":    "routing_unknown_category",
         "category": category,
-        "domain_id": (domain_config or {}).get("domain_id", "unknown"),
-        "reason":   reason,
+        "action":   "routing to Others/Uncategorised",
     }))
-    return "Team Lead", reason
+    return "Others/Uncategorised", f"Unknown category '{category}'"
 
 
 # ---------------------------------------------------------------------------
@@ -227,8 +293,9 @@ def _llm_fallback_route(
 
     for attempt in range(1, max_retries + 1):
         try:
+            # FIX: switched from Gemini (429 daily quota exhausted) to Groq
             raw = call_llm(
-                provider=LLMProvider.GEMINI,
+                provider=LLMProvider.GROQ,
                 messages=[
                     {"role": "system", "content": sys_prompt},
                     {"role": "user",   "content": str(usr_prompt).format(
@@ -237,6 +304,7 @@ def _llm_fallback_route(
                 ],
                 temperature=0.1,
                 max_tokens=256,
+                model_override="llama-3.1-8b-instant",
             )
 
             result     = json.loads(raw.strip())
@@ -502,7 +570,11 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     # =========================================================================
 
     # 3.1 Move email to team folder in Gmail (via existing mcp.py)
-    _move_to_gmail_folder(email_id=email_id, team=str(team))
+    # 3.1 Move email to team folder in Gmail (via existing mcp.py)
+    # BUG FIX: Disabled this call. It was taking the routing Team (e.g. "Finance Ops")
+    # and mapping it to new unapproved tags (like "Finance", "HR", "IT-Tier1") which 
+    # Gmail auto-created. Labels should strictly come from classification output.
+    # _move_to_gmail_folder(email_id=email_id, team=str(team))
 
     # TODO: Phase 2 — servicenow-mcp: _create_servicenow_ticket(...)
     # TODO: Phase 2 — jira-mcp:       _create_jira_ticket(...)
@@ -513,6 +585,7 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     routing_decision_obj = {
         "team":           team,
         "assignee":       team,
+        "gmail_label":    team,   # Gmail label path for apply_label_node
         "queue_id":       assignment_id,
         "routing_reason": routing_reason,
         "timestamp":      datetime.now(timezone.utc).isoformat(),

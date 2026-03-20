@@ -1,51 +1,41 @@
 """
 prompts/templates/query_response_template.py
-Canned template for auto-send path: general inquiries / info requests.
-The LLM fills {placeholders} — it does NOT freewrite outside this structure.
+General-purpose query/info-request response template.
+Used by AG-04 (ResponseAgent) for: query, general_query, info_request, others.
 """
 
-QUERY_TEMPLATE = """
-Dear {customer_name},
+QUERY_RESPONSE_TEMPLATE = (
+    "Thank you for reaching out.\n\n"
+    "We have received your enquiry and logged it under Case Reference: {case_id}.\n\n"
+    "Our team will review your message and respond within {sla_bucket}.\n\n"
+    "If you need to follow up in the meantime, please quote your case reference "
+    "in any reply.\n\n"
+    "Case Reference: {case_id}"
+)
 
-Thank you for contacting {company_name} support. We received your enquiry 
-regarding {subject_summary}.
 
-{resolution_or_info}
+def build_query_response(
+    case_id: str,
+    sla_bucket: str = "24 hours",
+    team: str = "Support Team",
+    customer_name: str = "",
+) -> str:
+    """
+    Render a general query acknowledgement message.
 
-If you need any further clarification, please reply to this email with your 
-case reference **{case_reference}** and we'll be happy to assist.
+    Args:
+        case_id:       Unique case reference ID.
+        sla_bucket:    Expected response window (e.g. '24h', '48h').
+        team:          Team name handling this query.
+        customer_name: Optional customer name for personalisation.
 
-Kind regards,
-{agent_name}
-{company_name} Customer Support
-Case: {case_reference}
-""".strip()
-
-# Slots the LLM must fill — nothing outside these is injected into auto-send emails
-REQUIRED_SLOTS = [
-    "customer_name",
-    "company_name",
-    "subject_summary",
-    "resolution_or_info",
-    "case_reference",
-    "agent_name",
-]
-
-FILL_PROMPT = """
-You are filling a customer support email template.
-Fill ONLY the placeholders listed below. Do not add any new content, 
-change the structure, or deviate from the template.
-
-Template:
-{template}
-
-Context:
-- Customer name: {customer_name}
-- Case reference: {case_reference}
-- Company name: {company_name}
-- Agent name: Support Team
-- Subject summary (one phrase): {subject_summary}
-- Resolution or info (2-3 sentences max): {resolution_context}
-
-Return ONLY the filled template text, no JSON, no headers.
-""".strip()
+    Returns:
+        Formatted acknowledgement string ready to send.
+    """
+    greeting = f"Dear {customer_name},\n\n" if customer_name else ""
+    body = QUERY_RESPONSE_TEMPLATE.format(
+        case_id=case_id,
+        sla_bucket=sla_bucket,
+        team=team,
+    )
+    return greeting + body

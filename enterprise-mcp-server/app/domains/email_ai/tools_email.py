@@ -1074,19 +1074,11 @@ async def gmail_move_to_folder(
         if folder_label in existing_labels:
             label_id = existing_labels[folder_label]
         else:
-            # Create new label
-            new_label = execute_gmail_api(
-                service.users().labels().create(
-                    userId=user_id,
-                    body={
-                        "name": folder_label,
-                        "labelListVisibility": "labelShow",
-                        "messageListVisibility": "show",
-                    }
-                )
-            )
-            label_id = new_label["id"]
-            logger.info("Created Gmail label", name=folder_label, id=label_id)
+            # BUG FIX: Do NOT automatically create labels here.
+            # Labels should strictly be managed by the application's configuration
+            # (gmail_label.json). Auto-creating them here causes rogue labels.
+            logger.warning("Attempted to move to non-existent folder", folder=folder_label)
+            return _error_result("gmail_move_to_folder", f"Folder/Label '{folder_label}' does not exist.")
 
         # Apply label and remove from INBOX
         result = await gmail_auto_label_messages(

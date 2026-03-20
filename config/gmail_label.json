@@ -1,20 +1,12 @@
 {
   "_comment": "Gmail Label Configuration — AI Inbox Management System",
   "_note": "Edit this file to add/remove/rename labels. No Python changes needed.",
-  "_how_gmail_nesting_works": "Gmail builds hierarchy from '/' in label names. Parent must be listed before children. e.g. 'IT Support/HR Team' nests under 'IT Support'.",
+  "_how_gmail_nesting_works": "Gmail builds hierarchy from '/' in label names. Parent must be listed before children. e.g. 'IT Support/General IT Queue' nests under 'IT Support'.",
   "labels": [
     {
       "name": "IT Support",
       "color": { "backgroundColor": "#a479e2", "textColor": "#ffffff" },
       "children": [
-        {
-          "name": "IT Support/HR Team",
-          "color": { "backgroundColor": "#b694e8", "textColor": "#ffffff" }
-        },
-        {
-          "name": "IT Support/IT Support Team",
-          "color": { "backgroundColor": "#a479e2", "textColor": "#ffffff" }
-        },
         {
           "name": "IT Support/Network Ops Team",
           "color": { "backgroundColor": "#d0bcf1", "textColor": "#41236d" }
@@ -96,20 +88,20 @@
   ],
   "alias_map": {
     "_comment": "LLM classification category → exact Gmail label path to apply",
-    "it": "IT Support/IT Support Team",
-    "it_support": "IT Support/IT Support Team",
-    "password_reset": "IT Support/IT Support Team",
-    "software_bug": "IT Support/IT Support Team",
-    "hardware_issue": "IT Support/IT Support Team",
-    "software_issue": "IT Support/IT Support Team",
-    "access_denied": "IT Support/IT Support Team",
+    "it": "IT Support/General IT Queue",
+    "it_support": "IT Support/General IT Queue",
+    "password_reset": "IT Support/General IT Queue",
+    "software_bug": "IT Support/General IT Queue",
+    "hardware_issue": "IT Support/General IT Queue",
+    "software_issue": "IT Support/General IT Queue",
+    "access_denied": "IT Support/General IT Queue",
     "network_issue": "IT Support/Network Ops Team",
     "vpn_issue": "IT Support/Network Ops Team",
     "connectivity": "IT Support/Network Ops Team",
     "access_request": "IT Support/Security Team",
     "security_incident": "IT Support/Security Team",
-    "onboarding": "IT Support/HR Team",
-    "offboarding": "IT Support/HR Team",
+    "onboarding": "HR/Recruitment Team",
+    "offboarding": "HR/Recruitment Team",
     "general_query": "IT Support/General IT Queue",
     "general_it": "IT Support/General IT Queue",
     "hr": "HR/HR Operations",
@@ -124,9 +116,12 @@
     "salary": "HR/Payroll Team",
     "employee_grievance": "HR/Payroll Team",
     "recruitment": "HR/Recruitment Team",
+    "headcount": "HR/Recruitment Team",
+    "interview": "HR/Recruitment Team",
     "hiring": "HR/Recruitment Team",
     "employee_relations": "HR/Employee Relations",
     "appraisal": "HR/Employee Relations",
+    "offer_letter": "HR/Employee Relations",
     "billing": "Customer Support/Customer Issues",
     "complaint": "Customer Support/Customer Issues",
     "query": "Customer Support/Customer Issues",

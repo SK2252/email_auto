@@ -38,7 +38,6 @@ import httpx
 from config.settings import settings
 from mcp_tools.llm_client import LLMProvider, call_llm
 from prompts.classification_prompt import (
-    VALID_CATEGORIES,
     VALID_TICKET_TYPES,
     build_classification_prompts,
     CLASSIFICATION_SYSTEM_PROMPT,
@@ -122,17 +121,91 @@ def _classify_and_score(
     if missing:
         raise ValueError(f"LLM response missing keys: {missing}")
 
-    # Normalise category — map "other" → "others" for backwards compat
+    # FIX: Case-insensitive label path detection with canonical casing restoration.
+    # LLM sometimes returns correct label but wrong case e.g. "others/uncategorised"
+    # Gmail API is case-sensitive — must restore exact casing before label lookup.
     cat = result.get("category", "others")
-    if cat == "other":
-        cat = "others"
-    if cat not in VALID_CATEGORIES:
-        logger.warning(json.dumps({
-            "event":    "classification_unknown_category",
-            "category": cat,
-            "action":   "falling back to others",
+
+    # Canonical casing map — every valid Gmail label path
+    _CANONICAL = {
+        "it support/network ops team":                 "IT Support/Network Ops Team",
+        "it support/security team":                    "IT Support/Security Team",
+        "it support/general it queue":                 "IT Support/General IT Queue",
+        "hr/hr operations":                            "HR/HR Operations",
+        "hr/payroll team":                             "HR/Payroll Team",
+        "hr/recruitment team":                         "HR/Recruitment Team",
+        "hr/employee relations":                       "HR/Employee Relations",
+        "customer support/customer issues":            "Customer Support/Customer Issues",
+        "customer support/customer issues/priority 1": "Customer Support/Customer Issues/Priority 1",
+        "customer support/customer issues/priority 2": "Customer Support/Customer Issues/Priority 2",
+        "customer support/customer issues/priority 3": "Customer Support/Customer Issues/Priority 3",
+        "customer support/product support":            "Customer Support/Product Support",
+        "customer support/warranty":                   "Customer Support/Warranty",
+        "others/uncategorised":                        "Others/Uncategorised",
+        "others/uncategorized":                        "Others/Uncategorised",
+    }
+
+    _FULL_LABEL_PREFIXES_LOWER = (
+        "it support/", "hr/", "customer support/", "others/",
+    )
+
+    # Strip trailing explanation text LLM may append after label path
+    # e.g. "IT Support/IT Support Team → Hardware issue" → keep only label
+    if "→" in cat:
+        cat = cat.split("→")[0].strip()
+    elif " - " in cat and "/" in cat:
+        cat = cat.split(" - ")[0].strip()
+
+    cat_lower = cat.lower().strip()
+
+    if any(cat_lower.startswith(p) for p in _FULL_LABEL_PREFIXES_LOWER):
+        # Full Gmail label path — restore canonical casing
+        cat = _CANONICAL.get(cat_lower, cat)
+        logger.info(json.dumps({
+            "event":    "classification_category_resolved",
+            "raw":      result.get("category"),
+            "resolved": cat,
+            "type":     "gmail_label_path",
         }))
-        cat = "others"
+    else:
+        # Short code from generic fallback prompt — normalise to lowercase
+        cat = cat_lower.replace(" ", "_").replace("-", "_")
+        _NORM = {
+            "other":           "others",
+            "general":         "general_query",
+            "it_support":      "it",
+            "hr_issue":        "hr",
+            "salary_issue":    "hr",
+            "salary_query":    "hr",
+            "payroll":         "hr",
+            "payroll_query":   "hr",
+            "headcount":       "hr",
+            "recruitment":     "hr",
+            "hiring":          "hr",
+            "leave":           "hr",
+            "leave_request":   "hr",
+            "offer_letter":    "hr",
+            "grievance":       "hr",
+            "harassment":      "hr",
+            "invoice":         "billing",
+            "invoice_dispute": "billing",
+            "payment":         "billing",
+            "refund":          "billing",
+            "overcharge":      "billing",
+            "vpn_issue":       "network_issue",
+            "connectivity":    "network_issue",
+            "access_denied":   "access_request",
+            "software_issue":  "software_bug",
+            "technical_issue": "software_bug",
+        }
+        cat = _NORM.get(cat, cat)
+        logger.info(json.dumps({
+            "event":    "classification_category_resolved",
+            "raw":      result.get("category"),
+            "resolved": cat,
+            "type":     "short_code",
+        }))
+
     result["category"] = cat
 
     # BUG-4 FIX: backfill is_ticket / ticket_type if model omitted them

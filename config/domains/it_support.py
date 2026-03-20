@@ -27,28 +27,26 @@ DOMAIN_CONFIG = {
     ],
 
     # -----------------------------------------------------------------------
-    # Universal taxonomy — used when this domain acts as the DEFAULT inbox
-    # Covers ALL email types so billing/HR/complaint are never misclassified
+    # universal_taxonomy — reserved for future multi-domain inbox use.
+    # To activate: pass universal_taxonomy to build_classification_prompts()
     # -----------------------------------------------------------------------
-    "universal_taxonomy": [
-        # IT-specific
-        "password_reset",
-        "hardware_issue",
-        "software_bug",
-        "access_request",
-        "network_issue",
-        "onboarding",
-        "security_incident",
-        # Universal cross-domain
-        "billing",          # invoices, charges, refunds, payments
-        "hr",               # leave, payroll, grievance, harassment
-        "complaint",        # angry customer demanding action
-        "query",            # general business questions
-        "info_request",     # documentation, reports, data requests
-        "escalation",       # CEO/SLA breach/legal threat
-        "general_query",    # vague/short emails, greetings
-        "other",            # non-business content
-    ],
+    # "universal_taxonomy": [
+    #     "password_reset",
+    #     "hardware_issue",
+    #     "software_bug",
+    #     "access_request",
+    #     "network_issue",
+    #     "onboarding",
+    #     "security_incident",
+    #     "billing",
+    #     "hr",
+    #     "complaint",
+    #     "query",
+    #     "info_request",
+    #     "escalation",
+    #     "general_query",
+    #     "other",
+    # ],
 
     "sla_rules": {
         "security_incident": {"bucket": "30min", "bucket_seconds": 1800,   "escalate_at": 0.5},
@@ -73,22 +71,14 @@ DOMAIN_CONFIG = {
     ],
 
     "routing_rules": {
-        "password_reset":    "Tier 1 Support",
-        "hardware_issue":    "Tier 1 Support",
-        "software_bug":      "Tier 2 Engineering",
-        "access_request":    "Tier 1 Support",
-        "network_issue":     "Network Ops",
-        "onboarding":        "IT Onboarding",
-        "security_incident": "Security Team",
-        "general_query":     "Tier 1 Support",
-        # Universal fallbacks
-        "billing":           "Tier 1 Support",
-        "hr":                "Tier 1 Support",
-        "complaint":         "Tier 1 Support",
-        "query":             "Tier 1 Support",
-        "info_request":      "Tier 1 Support",
-        "escalation":        "Tier 2 Engineering",
-        "other":             "Tier 1 Support",
+        "password_reset":    "IT Support/General IT Queue",
+        "hardware_issue":    "IT Support/General IT Queue",
+        "software_bug":      "IT Support/General IT Queue",
+        "access_request":    "IT Support/Security Team",
+        "network_issue":     "IT Support/Network Ops Team",
+        "onboarding":        "HR/Recruitment Team",
+        "security_incident": "IT Support/Security Team",
+        "general_query":     "IT Support/General IT Queue",
     },
 
     "compliance": {

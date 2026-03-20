@@ -1,53 +1,76 @@
 """
 prompts/templates/it_request_template.py
-Canned template for IT / technical support requests on auto-send path.
+Structured response template for IT support requests.
+Used by AG-04 (ResponseAgent) when category is one of:
+  password_reset, hardware_issue, software_bug, network_issue, access_request, etc.
 """
 
-IT_REQUEST_TEMPLATE = """
-Dear {customer_name},
+IT_REQUEST_TEMPLATE = (
+    "Thank you for contacting the IT Support team.\n\n"
+    "Your request has been logged under Case Reference: {case_id}.\n\n"
+    "Ticket Type  : {ticket_type}\n"
+    "Priority     : {priority}\n"
+    "Expected SLA : {sla_bucket}\n\n"
+    "{resolution_hint}"
+    "\n\n"
+    "Our team will follow up with you shortly. For urgent production issues, "
+    "please also call the IT Hotline at ext. 999.\n\n"
+    "Case Reference: {case_id}"
+)
 
-Thank you for submitting an IT support request.
+_RESOLUTION_HINTS = {
+    "password_reset": (
+        "In the meantime, you can self-serve a password reset via the IT portal at "
+        "https://itportal.internal/reset"
+    ),
+    "hardware_issue": (
+        "If possible, please note the asset tag (found on a sticker on the device) "
+        "and include it in any follow-up reply."
+    ),
+    "software_bug": (
+        "Please provide the exact error message and steps to reproduce when our engineer "
+        "follows up."
+    ),
+    "network_issue": (
+        "Please try restarting your network adapter and router as a first step. "
+        "Note your current IP address (run: ipconfig) for our diagnostics."
+    ),
+    "access_request": (
+        "Access requests require manager approval. Please ensure your line manager has "
+        "submitted an approval via the IT portal before we can proceed."
+    ),
+}
 
-Your ticket **{case_reference}** has been logged and assigned to the 
-{team_name} team with **{priority_label} priority**.
 
-{next_steps}
+def build_it_request_response(
+    case_id: str,
+    category: str = "technical_issue",
+    priority: str = "medium",
+    sla_bucket: str = "8 hours",
+    ticket_type: str = "service_request",
+    customer_name: str = "",
+) -> str:
+    """
+    Render an IT support request acknowledgement.
 
-Expected first response: **{response_sla}**.
+    Args:
+        case_id:       Unique case reference ID.
+        category:      Email category (used to select resolution hint).
+        priority:      Priority level (high / medium / low).
+        sla_bucket:    Expected response window.
+        ticket_type:   ITSM ticket type (incident / service_request).
+        customer_name: Optional requester name for personalisation.
 
-For urgent issues, please contact the IT helpdesk directly and quote 
-**{case_reference}**.
-
-Best regards,
-IT Support Team
-{company_name}
-""".strip()
-
-REQUIRED_SLOTS = [
-    "customer_name",
-    "case_reference",
-    "team_name",
-    "priority_label",
-    "next_steps",
-    "response_sla",
-    "company_name",
-]
-
-FILL_PROMPT = """
-Fill the IT support acknowledgement template below.
-Fill ONLY the named placeholders. Do NOT modify template structure.
-
-Template:
-{template}
-
-Context:
-- Customer name: {customer_name}
-- Case reference: {case_reference}
-- Company name: {company_name}
-- Assigned team: {team_name}
-- Priority label (e.g. High / Medium / Low): {priority_label}
-- Next steps (1-2 sentences describing what happens next): {next_steps_context}
-- Response SLA (e.g. "4 hours", "1 business day"): {response_sla}
-
-Return ONLY the filled template. No JSON, no extra text.
-""".strip()
+    Returns:
+        Formatted IT ACK string ready to send.
+    """
+    greeting = f"Dear {customer_name},\n\n" if customer_name else ""
+    resolution_hint = _RESOLUTION_HINTS.get(category, "Our team will be in touch soon.")
+    body = IT_REQUEST_TEMPLATE.format(
+        case_id=case_id,
+        ticket_type=ticket_type.replace("_", " ").title(),
+        priority=priority.upper(),
+        sla_bucket=sla_bucket,
+        resolution_hint=resolution_hint,
+    )
+    return greeting + body

@@ -51,7 +51,6 @@ async def is_duplicate(external_id: str, sender: str = "", subject: str = "") ->
     except Exception as e:
         logger.error(json.dumps({"event": "dedup_check_failed", "external_id": external_id, "error": str(e)}))
         return False
-    return False
 
 
 async def poll_and_ingest():
@@ -318,13 +317,7 @@ class AttachmentHandler:
                 logger.warning(json.dumps({
                     "event": "attachment_no_id", "filename": safe_name,
                 }))
-                paths.append({
-                    "path":         local_path,
-                    "filename":     safe_name,
-                    "mime_type":    mime_type,
-                    "size_bytes":   0,
-                    "attachment_id": "",
-                })
+                paths.append(local_path)
                 continue
 
             try:
@@ -339,25 +332,13 @@ class AttachmentHandler:
                         "filename": safe_name,
                         "error": att_resp.get("error"),
                     }))
-                    paths.append({
-                        "path":         local_path,
-                        "filename":     safe_name,
-                        "mime_type":    mime_type,
-                        "size_bytes":   0,
-                        "attachment_id": attachment_id,
-                    })
+                    paths.append(local_path)
                     continue
 
                 raw_b64 = att_resp.get("data", {}).get("data", "")
                 if not raw_b64:
                     logger.warning(json.dumps({"event": "attachment_empty_data", "filename": safe_name}))
-                    paths.append({
-                        "path":         local_path,
-                        "filename":     safe_name,
-                        "mime_type":    mime_type,
-                        "size_bytes":   0,
-                        "attachment_id": attachment_id,
-                    })
+                    paths.append(local_path)
                     continue
 
                 # Decode base64url → bytes
@@ -393,25 +374,13 @@ class AttachmentHandler:
                         "filename": safe_name, "bytes": len(file_bytes), "path": local_path,
                     }))
 
-                paths.append({
-                    "path":         local_path,
-                    "filename":     safe_name,
-                    "mime_type":    mime_type,
-                    "size_bytes":   len(file_bytes),
-                    "attachment_id": attachment_id,
-                })
+                paths.append(local_path)
 
             except Exception as e:
                 logger.error(json.dumps({
                     "event": "attachment_exception", "filename": safe_name, "error": str(e),
                 }))
-                paths.append({
-                    "path":         local_path,
-                    "filename":     safe_name,
-                    "mime_type":    mime_type,
-                    "size_bytes":   0,
-                    "attachment_id": attachment_id,
-                })
+                paths.append(local_path)
 
         return paths
 
@@ -438,7 +407,16 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
     # ---- Load domain config for this tenant (injected for all downstream agents) ----
     tenant_id = raw.get("tenant_id") or state.get("tenant_id") or "default"
     try:
-        domain_cfg = get_domain_config(tenant_id)
+        # FIX: pass subject+body so domain_loader can detect correct domain
+        # (IT Support / HR / Customer Support) from email content keywords.
+        # Without this, all default-tenant emails use it_support domain.
+        _subject = raw.get("subject") or raw.get("Subject") or ""
+        _body    = raw.get("body")    or raw.get("text")    or raw.get("snippet") or ""
+        domain_cfg = get_domain_config(
+            tenant_id,
+            email_subject=_subject,
+            email_body=_body,
+        )
     except Exception as exc:
         logger.warning(json.dumps({"event": "domain_load_failed", "tenant_id": tenant_id, "error": str(exc)}))
         domain_cfg = None
@@ -464,7 +442,7 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
     # Use raw attachments (dicts with attachmentId) not parsed (filenames only)
     raw_attachments  = raw.get("attachments", [])
     gmail_message_id = raw.get("email_id", "")   # real Gmail ID e.g. 19ce81a9
-    att_paths: List[Dict[str, Any]] = []
+    att_paths: List[str] = []
     if raw_attachments:
         try:
             # Build human-readable folder name: subject_YYYY-MM-DD
@@ -541,24 +519,8 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
                 case_id,
                 ack_sent,
                 json.dumps(att_paths),
-                intake_at,
+                intake_at,                              # $12 — pipeline_timings intake_at
             )
-
-            # --- ST-E1-06 Enhanced: Insert into dedicated attachments table ---
-            for att in att_paths:
-                await conn.execute(
-                    """
-                    INSERT INTO attachments (
-                        email_id, tenant_id, filename, content_type, storage_path, size_bytes
-                    ) VALUES ($1::uuid, $2, $3, $4, $5, $6)
-                    """,
-                    parsed["email_id"],
-                    tenant_id if tenant_id != "default" else None,
-                    att["filename"],
-                    att["mime_type"],
-                    att["path"],
-                    att["size_bytes"]
-                )
         finally:
             await conn.close()
     except Exception as exc:

@@ -133,7 +133,7 @@ class Settings(BaseSettings):
     # -----------------------------------------------------------------------
     # Polling & SLA
     # -----------------------------------------------------------------------
-    POLLING_INTERVAL_SECONDS:   int = 5
+    POLLING_INTERVAL_SECONDS:   int = 3
     SLA_BUCKET_4H_SECONDS:      int = 4  * 3600
     SLA_BUCKET_24H_SECONDS:     int = 24 * 3600
     SLA_BUCKET_48H_SECONDS:     int = 48 * 3600
