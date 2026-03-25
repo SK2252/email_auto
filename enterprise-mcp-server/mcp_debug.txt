@@ -1,0 +1,115 @@
+
+  
+      # StreamableHTTP settings
+      json_response: bool
+>     stateless_http: bool
+      """Define if the server should create a new transport per request."""
+  
+      # resource settings
+          message_path: str = "/messages/",
+          streamable_http_path: str = "/mcp",
+          json_response: bool = False,
+>         stateless_http: bool = False,
+          warn_on_duplicate_resources: bool = True,
+          warn_on_duplicate_tools: bool = True,
+          warn_on_duplicate_prompts: bool = True,
+              message_path=message_path,
+              streamable_http_path=streamable_http_path,
+              json_response=json_response,
+>             stateless_http=stateless_http,
+              warn_on_duplicate_resources=warn_on_duplicate_resources,
+              warn_on_duplicate_tools=warn_on_duplicate_tools,
+              warn_on_duplicate_prompts=warn_on_duplicate_prompts,
+          self._retry_interval = retry_interval
+          self._custom_starlette_routes: list[Route] = []
+          self.dependencies = self.settings.dependencies
+>         self._session_manager: StreamableHTTPSessionManager | None = None
+  
+          # Set up MCP protocol handlers
+          self._setup_handlers()
+          return self._mcp_server.icons
+  
+      @property
+>     def session_manager(self) -> StreamableHTTPSessionManager:
+          """Get the StreamableHTTP session manager.
+  
+          This is exposed to enable advanced use cases like mounting multiple
+          FastMCP servers in a single FastAPI application.
+  
+          Raises:
+>             RuntimeError: If called before streamable_http_app() has been called.
+          """
+>         if self._session_manager is None:  # pragma: no cover
+              raise RuntimeError(
+                  "Session manager can only be accessed after"
+>                 "calling streamable_http_app()."
+                  "The session manager is created lazily"
+                  "to avoid unnecessary initialization."
+              )
+>         return self._session_manager  # pragma: no cover
+  
+      def run(
+          self,
+          """Run the server using StreamableHTTP transport."""
+          import uvicorn
+  
+>         starlette_app = self.streamable_http_app()
+  
+          config = uvicorn.Config(
+              starlette_app,
+          # Create Starlette app with routes and middleware
+          return Starlette(debug=self.settings.debug, routes=routes, middleware=middleware)
+  
+>     def streamable_http_app(self) -> Starlette:
+          """Return an instance of the StreamableHTTP server app."""
+          from starlette.middleware import Middleware
+  
+          # Create session manager on first call (lazy initialization)
+>         if self._session_manager is None:  # pragma: no branch
+>             self._session_manager = StreamableHTTPSessionManager(
+                  app=self._mcp_server,
+                  event_store=self._event_store,
+                  retry_interval=self._retry_interval,
+                  json_response=self.settings.json_response,
+>                 stateless=self.settings.stateless_http,  # Use the stateless setting
+                  security_settings=self.settings.transport_security,
+              )
+  
+          # Create the ASGI handler
+>         streamable_http_app = StreamableHTTPASGIApp(self._session_manager)
+  
+          # Create routes
+          routes: list[Route | Mount] = []
+              routes.append(
+                  Route(
+                      self.settings.streamable_http_path,
+>                     endpoint=RequireAuthMiddleware(streamable_http_app, required_scopes, resource_metadata_url),
+                  )
+              )
+          else:
+              routes.append(
+                  Route(
+                      self.settings.streamable_http_path,
+>                     endpoint=streamable_http_app,
+                  )
+              )
+  
+              debug=self.settings.debug,
+              routes=routes,
+              middleware=middleware,
+>             lifespan=lambda app: self.session_manager.run(),
+          )
+  
+      async def list_prompts(self) -> list[MCPPrompt]:
+      ASGI application for Streamable HTTP server transport.
+      """
+  
+>     def __init__(self, session_manager: StreamableHTTPSessionManager):
+>         self.session_manager = session_manager
+  
+      async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:  # pragma: no cover
+>         await self.session_manager.handle_request(scope, receive, send)
+  
+  
+  class Context(BaseModel, Generic[ServerSessionT, LifespanContextT, RequestT]):
+

@@ -23,7 +23,6 @@ mcp>=1.0.0
 sqlalchemy[asyncio]>=2.0.23
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.0
-alembic>=1.13.0
 
 # Storage — Redis & Celery
 redis>=5.0.0
@@ -55,3 +54,7 @@ slowapi>=0.1.9
 
 # SSE Transport
 sse-starlette>=1.6.0
+
+# MLflow Tracking
+mlflow>=2.11.0
+mlflow[genai]>=2.11.0

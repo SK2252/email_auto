@@ -17,6 +17,7 @@ from celery import Celery
 from config.settings import settings
 from agents.intake_agent import poll_and_ingest
 from agents.sla_agent import SLA_CELERY_BEAT_SCHEDULE
+from agents.celery_tasks import MLFLOW_CELERY_BEAT_SCHEDULE
 from utils.gmail_label_manager import setup_gmail_labels
 
 # Configure Logging
@@ -36,8 +37,9 @@ logger = logging.getLogger(__name__)
 # Workers: celery -A main.celery_app worker --loglevel=info
 # Beat:    celery -A main.celery_app beat --loglevel=info
 celery_app = Celery("email_ai_system", broker=settings.CELERY_BROKER_URL)
+combined_schedule = {**SLA_CELERY_BEAT_SCHEDULE, **MLFLOW_CELERY_BEAT_SCHEDULE}
 celery_app.conf.update(
-    beat_schedule=SLA_CELERY_BEAT_SCHEDULE,
+    beat_schedule=combined_schedule,
     timezone='UTC',
     task_serializer='json',
     accept_content=['json'],
@@ -46,6 +48,7 @@ celery_app.conf.update(
 
 # Import tasks to ensure registration
 import agents.sla_agent  # noqa
+import agents.celery_tasks  # noqa
 
 # Import server-side shared tasks for worker registration
 try:
@@ -61,7 +64,8 @@ async def polling_loop():
     Persistent loop for ST-E1-01 Gmail polling.
     Triggers run_pipeline for each new email discovered.
     """
-    interval = getattr(settings, "POLLING_INTERVAL_SECONDS", 30)
+    # Forced to 3 seconds for near-instant email polling (bypassing env overrides)
+    interval = 3
     logger.info(f"Starting Gmail polling loop (Interval: {interval}s)...")
     
     while True:

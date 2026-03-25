@@ -15,14 +15,10 @@ interface Stats {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  billing:      'bg-blue-500',
-  it:           'bg-violet-500',
-  hr:           'bg-emerald-500',
-  complaint:    'bg-red-500',
-  query:        'bg-amber-500',
-  general_query:'bg-amber-400',
-  escalation:   'bg-rose-500',
-  other:        'bg-slate-400',
+  it_support:       'bg-violet-500',
+  hr:               'bg-emerald-500',
+  customer_support: 'bg-amber-500',
+  others:           'bg-slate-400',
 };
 
 const Dashboard: React.FC = () => {

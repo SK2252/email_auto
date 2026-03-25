@@ -7,6 +7,7 @@ import ThemePage from './components/ThemePage';
 import SettingsModal from './components/SettingsModal';
 import EmailInbox from './pages/EmailInbox';
 import Dashboard from './pages/Dashboard';
+import MLflowPage from './pages/MLflowPage';
 import { ChatSession, Message, ThemeConfig } from './types';
 import { APP_NAME, FONTS } from './constants';
 import { v4 as uuidv4 } from 'uuid';
@@ -167,6 +168,10 @@ const AppContent: React.FC<any> = ({
           <Route
             path="/theme"
             element={<ThemePage theme={theme} setTheme={setTheme} />}
+          />
+          <Route
+            path="/mlflow"
+            element={<MLflowPage />}
           />
         </Routes>
       </main>

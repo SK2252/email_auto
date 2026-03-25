@@ -15,8 +15,6 @@ from slowapi.errors import RateLimitExceeded
 from starlette.routing import Mount
 import asyncio
 from app.core.worker import worker_loop, stop_worker
-from app.api.routers.v1.mcp import mcp
-
 from app import __version__
 from app.api.routers.v1.admin import router as admin_router
 from app.api.routers.health import router as health_router
@@ -133,18 +131,10 @@ def create_app() -> FastAPI:
             redis="ok" if redis else "unavailable",
         )
         
-        # Start Orchestrator Worker
-        # app.state.worker_task = asyncio.create_task(worker_loop(mcp))
-
     @app.on_event("shutdown")
     async def on_shutdown():
         from app.infrastructure.database.engine import dispose_engine
         from app.infrastructure.cache.redis_client import dispose_redis
-
-        # Stop Orchestrator Worker
-        stop_worker()
-        if hasattr(app.state, "worker_task"):
-            await app.state.worker_task
 
         await dispose_engine()
         await dispose_redis()
@@ -159,10 +149,6 @@ def create_app() -> FastAPI:
             "status": "running",
             "docs": "/docs" if not settings.is_production else None,
         }
-
-    # --- 8. Mount MCP Server (Phase 3A) ---
-    from app.api.routers.v1.mcp import mcp
-    app.mount("/mcp", mcp.sse_app())
 
     return app
 

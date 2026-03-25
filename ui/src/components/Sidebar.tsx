@@ -19,13 +19,10 @@ interface SidebarProps {
 }
 
 const LABEL_TREE = [
-  { key: 'Billing',    label: 'Billing',     Icon: CreditCard,    color: { parent:'text-blue-600',   activeBg:'bg-blue-50',   dot:'bg-blue-500'   }, children:[{key:'Billing/High',label:'High',dot:'bg-red-500'},{key:'Billing/Medium',label:'Medium',dot:'bg-amber-400'},{key:'Billing/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'IT Support', label: 'IT Support',  Icon: Monitor,       color: { parent:'text-violet-600', activeBg:'bg-violet-50', dot:'bg-violet-500' }, children:[{key:'IT Support/High',label:'High',dot:'bg-red-500'},{key:'IT Support/Medium',label:'Medium',dot:'bg-amber-400'},{key:'IT Support/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'HR',         label: 'HR',           Icon: Users,         color: { parent:'text-emerald-600',activeBg:'bg-emerald-50',dot:'bg-emerald-500'}, children:[{key:'HR/High',label:'High',dot:'bg-red-500'},{key:'HR/Medium',label:'Medium',dot:'bg-amber-400'},{key:'HR/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'Complaint',  label: 'Complaint',    Icon: AlertTriangle, color: { parent:'text-red-600',    activeBg:'bg-red-50',    dot:'bg-red-500'    }, children:[{key:'Complaint/High',label:'High',dot:'bg-red-500'},{key:'Complaint/Medium',label:'Medium',dot:'bg-amber-400'},{key:'Complaint/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'Query',      label: 'Query',        Icon: HelpCircle,    color: { parent:'text-amber-600',  activeBg:'bg-amber-50',  dot:'bg-amber-500'  }, children:[{key:'Query/High',label:'High',dot:'bg-red-500'},{key:'Query/Medium',label:'Medium',dot:'bg-amber-400'},{key:'Query/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'Escalation', label: 'Escalation',   Icon: TrendingUp,    color: { parent:'text-rose-600',   activeBg:'bg-rose-50',   dot:'bg-rose-500'   }, children:[{key:'Escalation/High',label:'High',dot:'bg-red-500'},{key:'Escalation/Medium',label:'Medium',dot:'bg-amber-400'},{key:'Escalation/Low',label:'Low',dot:'bg-slate-300'}] },
-  { key: 'Other',      label: 'Other',        Icon: ShieldAlert,   color: { parent:'text-slate-600',  activeBg:'bg-slate-100', dot:'bg-slate-400'  }, children:[{key:'Other/High',label:'High',dot:'bg-red-500'},{key:'Other/Medium',label:'Medium',dot:'bg-amber-400'},{key:'Other/Low',label:'Low',dot:'bg-slate-300'}] },
+  { key: 'IT Support', label: 'IT Support',  Icon: Monitor,       color: { parent:'text-violet-600', activeBg:'bg-violet-50', dot:'bg-violet-500' }, children:[{key:'IT Support/Network Ops Team',label:'Network Ops',dot:'bg-violet-400'},{key:'IT Support/Security Team',label:'Security',dot:'bg-violet-600'},{key:'IT Support/General IT Queue',label:'General IT',dot:'bg-violet-300'}] },
+  { key: 'HR',         label: 'HR',           Icon: Users,         color: { parent:'text-emerald-600',activeBg:'bg-emerald-50',dot:'bg-emerald-500'}, children:[{key:'HR/HR Operations',label:'Operations',dot:'bg-emerald-600'},{key:'HR/Payroll Team',label:'Payroll',dot:'bg-emerald-400'},{key:'HR/Recruitment Team',label:'Recruitment',dot:'bg-emerald-300'},{key:'HR/Employee Relations',label:'Relations',dot:'bg-emerald-700'}] },
+  { key: 'Customer Support', label: 'Customer', Icon: HelpCircle, color: { parent:'text-amber-600', activeBg:'bg-amber-50', dot:'bg-amber-500' }, children:[{key:'Customer Support/Customer Issues',label:'Issues',dot:'bg-amber-600'},{key:'Customer Support/Product Support',label:'Product Support',dot:'bg-amber-400'},{key:'Customer Support/Warranty',label:'Warranty',dot:'bg-amber-300'}] },
+  { key: 'Others',     label: 'Others',       Icon: ShieldAlert, color: { parent:'text-slate-600',  activeBg:'bg-slate-100', dot:'bg-slate-400'  }, children:[{key:'Others/Uncategorised',label:'Uncategorised',dot:'bg-slate-500'}] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectSession, onNewChat, onDeleteSession, onOpenSettings }) => {
@@ -37,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectS
   const isTheme    = location.pathname === '/theme';
   const isInbox    = location.pathname === '/inbox';
   const isDash     = location.pathname === '/dashboard' || location.pathname === '/';
+  const isMlflow   = location.pathname === '/mlflow';
   const isNewChat  = location.pathname === '/chat/new';
   const currentLabel = new URLSearchParams(location.search).get('label') ?? '';
 
@@ -76,7 +74,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectS
           <Mail size={18} /> Gmail Inbox
         </button>
         <button onClick={() => navigate('/inbox?label=human_review')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${currentLabel === 'human_review' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
-          <Activity size={18} /> Human Review Queue
+          <AlertTriangle size={18} /> Human Review Queue
+        </button>
+        <button onClick={() => navigate('/mlflow')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isMlflow ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+          <Activity size={18} /> MLflow LLMOps
         </button>
         <button onClick={() => navigate('/theme')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isTheme ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
           <Palette size={18} /> Theme &amp; Fonts
