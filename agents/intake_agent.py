@@ -30,7 +30,7 @@ async def is_duplicate(external_id: str, sender: str = "", subject: str = "") ->
     """Check external_id OR same sender+subject within 10 minutes."""
     db_url = getattr(settings, "DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
     try:
-        conn = await asyncpg.connect(db_url)
+        conn = await asyncpg.connect(db_url, statement_cache_size=0)
         try:
             # Check 1: exact external_id match
             row = await conn.fetchrow("SELECT 1 FROM emails WHERE external_id = $1 LIMIT 1", external_id)
@@ -497,7 +497,7 @@ async def intake_node(state: AgentState) -> Dict[str, Any]:
     intake_at = datetime.utcnow().isoformat() + "Z"   # duration tracking
     db_url = getattr(settings, "DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
     try:
-        conn = await asyncpg.connect(db_url)
+        conn = await asyncpg.connect(db_url, statement_cache_size=0)
         try:
             await conn.execute(
                 """

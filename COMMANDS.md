@@ -42,62 +42,47 @@ psql -U postgres -d email_db -f db/schema.sql
 
 ## 🔧 Running Services
 
-### Start Redis (Docker)
-```bash
-docker-compose up -d
-```
-
-Stop Redis:
-```bash
-docker-compose down
-```
-
-### Start Celery Worker with Beat (SLA Monitoring)
-```bash
-celery -A main.celery_app worker -B -l info
-```
-
-Individual commands:
-- **Worker only:** `celery -A main.celery_app worker -l info`
-- **Beat scheduler only:** `celery -A main.celery_app beat -l info`
-
-### Start MCP Server (Port 9000)
+### 1. Unified Backend (Port 9000)
+Runs the FastAPI application with the MCP server mounted at `/mcp`:
 ```bash
 python run_mcp_server.py
 ```
 
-### Start Main Polling Loop
+### 2. Main Agent (Polling Loop)
+Starts the intake and response agents:
 ```bash
 python main.py
 ```
 
-### Start FastAPI Backend (if separate endpoint needed)
-```bash
-python mcp_launcher.py
-```
-
----
-
-## 🎨 Frontend (React UI)
-
-### Navigate to UI Directory
+### 3. Frontend (React UI)
+Starts the development server on `http://localhost:3000`:
 ```bash
 cd ui
-```
-
-### Install Node Dependencies
-```bash
-npm install
-```
-
-### Development Server (Vite)
-```bash
 npm run dev
 ```
 
-### Build for Production
+### 4a. Celery Worker (Background Tasks)
+Starts the worker:
 ```bash
-npm run build
+celery -A main.celery_app worker -l info -P eventlet
+```
+
+### 4b. Celery Beat (SLA Scheduler)
+Starts the beat scheduler (run in a separate terminal):
+```bash
+celery -A main.celery_app beat -l info
+```
+
+### 5. MLflow UI (Monitoring)
+Starts the MLflow tracking UI on `http://localhost:5000`:
+```bash
+python start_mlflow.py
+```
+
+### 6. MCP Inspector (Debugging)
+Inspect and test the 31 MCP tools:
+```bash
+npx @modelcontextprotocol/inspector http://localhost:9000/mcp
 ```
 
 ---
@@ -299,8 +284,11 @@ pip --version
 # 2. Start infrastructure (Redis)
 docker-compose up -d
 
-# 3. Start Celery worker with beat (in separate terminal)
-celery -A main.celery_app worker -B -l info
+# 3. Start Celery worker (in separate terminal)
+celery -A main.celery_app worker -l info -P eventlet
+
+# 3b. Start Celery beat (in separate terminal)
+celery -A main.celery_app beat -l info
 
 # 4. Start MCP server (in separate terminal)
 python run_mcp_server.py
@@ -325,7 +313,8 @@ python debug_full_pipeline.py
 - [ ] Redis running (`redis-cli ping` returns `PONG`)
 - [ ] Environment variables loaded (`.env` file exists)
 - [ ] MCP server accessible on http://localhost:9000
-- [ ] Celery worker started with beat scheduler
+- [ ] Celery worker started (`-P eventlet` recommended for Windows)
+- [ ] Celery beat scheduler started in a separate terminal
 - [ ] Main polling loop running without errors
 
 ---

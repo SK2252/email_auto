@@ -1,0 +1,20 @@
+Starting Enterprise MCP Server on http://localhost:9000
+API Docs: http://localhost:9000/docs
+d:\email_auto\.venv\lib\site-packages\google\api_core\_python_version_support.py:275: FutureWarning: You are using a Python version (3.10.11) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+2026-03-26 12:48:45 [info     ] Enterprise MCP Server initialised document_tools=5 email_tools=19 filesystem_tools=5 job_tools=2 total_tools=31
+{"level": "info", "timestamp": "2026-03-26T07:18:45.437975Z", "message": "Mounting Enterprise MCP Server at /mcp"}
+INFO:     Started server process [30704]
+INFO:     Waiting for application startup.
+{"error": "(sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.DuplicatePreparedStatementError'>: prepared statement \"__asyncpg_stmt_1__\" already exists\nHINT:  \nNOTE: pgbouncer with pool_mode set to \"transaction\" or\n\"statement\" does not support prepared statements properly.\nYou have two options:\n\n* if you are using pgbouncer for connection pooling to a\n  single server, switch to the connection pool functionality\n  provided by asyncpg, it is a much better option for this\n  purpose;\n\n* if you have no option of avoiding the use of pgbouncer,\n  then you can set statement_cache_size to 0 when creating\n  the asyncpg connection object.\n\n[SQL: select pg_catalog.version()]\n(Background on this error at: https://sqlalche.me/e/20/f405)", "level": "warning", "timestamp": "2026-03-26T07:18:46.969694Z", "message": "PostgreSQL health check failed"}
+{"status": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:46.969694Z", "message": "Database health check"}
+{"error": "Error 22 connecting to localhost:6379. The remote computer refused the network connection.", "level": "warning", "timestamp": "2026-03-26T07:18:51.032146Z", "message": "Redis unavailable \u2014 rate limiting will use in-memory fallback"}
+{"status": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:51.032146Z", "message": "Redis health check"}
+{"version": "1.0.0", "environment": "development", "host": "0.0.0.0", "port": 9000, "database": "unavailable", "redis": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:51.032146Z", "message": "Enterprise MCP Server started"}
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 9000): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+{"level": "info", "timestamp": "2026-03-26T07:18:51.034159Z", "message": "Database engine disposed"}
+{"level": "info", "timestamp": "2026-03-26T07:18:51.034159Z", "message": "Redis connection pool disposed"}
+{"level": "info", "timestamp": "2026-03-26T07:18:51.034159Z", "message": "Enterprise MCP Server shut down"}
+INFO:     Application shutdown complete.

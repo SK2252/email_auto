@@ -13,7 +13,8 @@ from __future__ import annotations
 import time
 import logging
 import functools
-from typing import Any, Dict
+import asyncio
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -106,79 +107,121 @@ def log_agent_metric(
 # DECORATOR
 # ---------------------------------------------------------------------------
 def instrument_agent(agent_id: str):
+    """
+    Decorator for both sync and async functions.
+    Supports LangGraph nodes (async) and Celery tasks (sync).
+    """
     def decorator(func):
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            import mlflow
-            start = time.monotonic()
+        if asyncio.iscoroutinefunction(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                import mlflow
+                start = time.monotonic()
 
-            state = args[0] if args and isinstance(args[0], dict) else {}
-            email_id = (
-                state.get("email_id") or
-                (state.get("parsed_email") or {}).get("email_id", "unknown")
-            )
-
-            try:
-                _ensure_initialized()
-
-                # SPAN = feeds the Overview/Traces tab
-                with mlflow.start_span(
-                    name=agent_id,
-                    span_type="AGENT",
-                    attributes={
-                        "email_id": email_id,
-                        "agent_id": agent_id,
-                    }
-                ) as span:
-
-                    # RUN = feeds the Runs tab (existing)
-                    with mlflow.start_run(
-                        run_name=f"{agent_id}_{email_id[:8]}",
-                        tags={"agent_id": agent_id, "email_id": email_id},
-                    ):
-                        result = await func(*args, **kwargs)
-                        elapsed = (time.monotonic() - start) * 1000
-
-                        mlflow.log_metric("execution_time_ms", elapsed)
-                        mlflow.log_metric("success", 1)
-                        mlflow.log_param("agent_id", agent_id)
-                        mlflow.log_param("email_id", email_id)
-
-                        # AG-02 specific metrics
-                        if agent_id == "AG-02" and isinstance(result, dict):
-                            clf = result.get("classification_result") or {}
-                            confidence = clf.get("confidence") or result.get("confidence")
-                            category   = clf.get("category")   or result.get("category", "")
-                            if confidence:
-                                mlflow.log_metric("confidence", float(confidence))
-                            mlflow.log_param("category",   category)
-                            mlflow.log_param("model_used", "llama-3.3-70b-versatile")
-
-                            # Feed span attributes for Overview tab
-                            span.set_attribute("confidence",  confidence or 0.0)
-                            span.set_attribute("category",    category)
-                            span.set_attribute("model",       "llama-3.3-70b-versatile")
-                            span.set_attribute("provider",    "groq")
-
-                        elif agent_id == "AG-01" and isinstance(result, dict):
-                            span.set_attribute("ack_sent", result.get("ack_sent", False))
-
-                        elif agent_id == "AG-03" and isinstance(result, dict):
-                            rd = result.get("routing_decision") or {}
-                            span.set_attribute("team", str(rd.get("team", "unknown")))
-
-                        span.set_attribute("execution_time_ms", elapsed)
-                        span.set_attribute("success", True)
-
-                        return result
-
-            except Exception as exc:
-                elapsed = (time.monotonic() - start) * 1000
-                log_agent_metric(
-                    agent_id, email_id, elapsed, False,
-                    error_type=type(exc).__name__,
+                state = args[0] if args and isinstance(args[0], dict) else {}
+                email_id = (
+                    state.get("email_id") or
+                    (state.get("parsed_email") or {}).get("email_id", "unknown")
                 )
-                raise
 
-        return wrapper
+                try:
+                    _ensure_initialized()
+                    with mlflow.start_span(
+                        name=agent_id,
+                        span_type="AGENT",
+                        attributes={"email_id": email_id, "agent_id": agent_id}
+                    ) as span:
+                        with mlflow.start_run(
+                            run_name=f"{agent_id}_{email_id[:8]}",
+                            tags={"agent_id": agent_id, "email_id": email_id},
+                        ):
+                            result = await func(*args, **kwargs)
+                            _log_metrics_to_mlflow(agent_id, email_id, start, result, span)
+                            return result
+                except Exception as exc:
+                    _handle_instrumentation_error(agent_id, email_id, start, exc)
+                    raise
+            return async_wrapper
+        else:
+            @functools.wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                import mlflow
+                start = time.monotonic()
+
+                # Determine if first arg is state or celery task instance (self)
+                first_arg = args[0] if args else None
+                state = {}
+                if isinstance(first_arg, dict):
+                    state = first_arg
+                elif hasattr(first_arg, 'request'): # Celery Task Instance
+                    # Try to find state in other args
+                    for arg in args[1:]:
+                        if isinstance(arg, dict):
+                            state = arg
+                            break
+                
+                email_id = (
+                    state.get("email_id") or
+                    (state.get("parsed_email") or {}).get("email_id", "unknown")
+                )
+
+                try:
+                    _ensure_initialized()
+                    with mlflow.start_span(
+                        name=agent_id,
+                        span_type="AGENT",
+                        attributes={"email_id": email_id, "agent_id": agent_id}
+                    ) as span:
+                        with mlflow.start_run(
+                            run_name=f"{agent_id}_{email_id[:8]}",
+                            tags={"agent_id": agent_id, "email_id": email_id},
+                        ):
+                            result = func(*args, **kwargs)
+                            _log_metrics_to_mlflow(agent_id, email_id, start, result, span)
+                            return result
+                except Exception as exc:
+                    _handle_instrumentation_error(agent_id, email_id, start, exc)
+                    raise
+            return sync_wrapper
     return decorator
+
+
+def _log_metrics_to_mlflow(agent_id: str, email_id: str, start_time: float, result: Any, span: Any) -> None:
+    """Shared helper to log metrics and update span attributes."""
+    try:
+        import mlflow
+        elapsed = (time.monotonic() - start_time) * 1000
+        
+        mlflow.log_metric("execution_time_ms", round(elapsed, 2))
+        mlflow.log_metric("success", 1)
+        mlflow.log_param("agent_id", agent_id)
+        mlflow.log_param("email_id", email_id)
+
+        # Agent-specific metrics
+        if agent_id == "AG-02" and isinstance(result, dict):
+            clf = result.get("classification_result") or {}
+            confidence = clf.get("confidence") or result.get("confidence")
+            category   = clf.get("category")   or result.get("category", "")
+            if confidence:
+                mlflow.log_metric("confidence", float(confidence))
+            mlflow.log_param("category",   category)
+            span.set_attribute("confidence", confidence or 0.0)
+            span.set_attribute("category",   category)
+
+        elif agent_id == "AG-03" and isinstance(result, dict):
+            rd = result.get("routing_decision") or {}
+            span.set_attribute("team", str(rd.get("team", "unknown")))
+
+        span.set_attribute("execution_time_ms", elapsed)
+        span.set_attribute("success", True)
+    except Exception as exc:
+        logger.debug(f"Metrics logging failed: {exc}")
+
+
+def _handle_instrumentation_error(agent_id: str, email_id: str, start_time: float, exc: Exception) -> None:
+    """Shared helper to log failures."""
+    elapsed = (time.monotonic() - start_time) * 1000
+    log_agent_metric(
+        agent_id, email_id, elapsed, False,
+        error_type=type(exc).__name__,
+    )

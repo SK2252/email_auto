@@ -2,7 +2,7 @@ import logging
 import json
 from typing import Optional, List, Any, Dict
 from mcp import ClientSession
-from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamablehttp_client
 
 # Structured logging setup
 logger = logging.getLogger(__name__)
@@ -13,14 +13,14 @@ class GmailClient:
     Provides a consistent interface for agents to interact with Gmail.
     """
 
-    def __init__(self, server_url: str = "http://localhost:9000/mcp/sse"):
+    def __init__(self, server_url: str = "http://localhost:9000/mcp"):
         self.server_url = server_url
 
     async def _call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Generic helper to call a tool via MCP SSE."""
         try:
-            async with sse_client(self.server_url) as streams:
-                async with ClientSession(streams[0], streams[1]) as session:
+            async with streamablehttp_client(self.server_url) as (read, write, _):
+                async with ClientSession(read, write) as session:
                     await session.initialize()
                     result = await session.call_tool(name, arguments)
                     

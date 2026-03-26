@@ -30,6 +30,18 @@ from app.core.metrics import init_server_info
 
 logger = get_logger(__name__)
 
+# Import MCP server for mounting
+try:
+    from mcp_server.main import mcp as enterprise_mcp, app as mcp_app
+except Exception as e:
+    enterprise_mcp = None
+    mcp_app = None
+    logger.error(f"Failed to import mcp_server.main: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc())
+
+_mcp_task: asyncio.Task | None = None
+
 
 def create_app() -> FastAPI:
     """
@@ -77,6 +89,7 @@ def create_app() -> FastAPI:
             "X-Correlation-Id",
             "X-Request-Id",
             "Mcp-Session-Id",
+            "mcp-session-id",
         ],
     )
 
@@ -85,6 +98,12 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(gmail_extension_router)
     app.include_router(mlflow_router)
+
+    # --- 4.5 Mount MCP Server ---
+    if mcp_app:
+        logger.info("Mounting Enterprise MCP Server at /mcp")
+        app.mount("/mcp", mcp_app)
+
 
     # --- 5. Rate limiter ---
     app.state.limiter = limiter
@@ -97,6 +116,20 @@ def create_app() -> FastAPI:
     # --- 7. Lifecycle hooks ---
     @app.on_event("startup")
     async def on_startup():
+        global _mcp_task
+
+        # Start the MCP session manager so it initialises its anyio task group.
+        # Without this, every request gets: Task group is not initialized.
+        async def _run_mcp_session_manager():
+            if enterprise_mcp is not None:
+                async with enterprise_mcp.session_manager.run():
+                    await asyncio.Event().wait()   # block until cancelled
+
+        if enterprise_mcp is not None:
+            _mcp_task = asyncio.create_task(_run_mcp_session_manager())
+            # Give the task group a moment to initialise before the first request
+            await asyncio.sleep(0.1)
+
         init_server_info(
             version=__version__,
             environment=settings.environment,
@@ -133,6 +166,14 @@ def create_app() -> FastAPI:
         
     @app.on_event("shutdown")
     async def on_shutdown():
+        global _mcp_task
+        if _mcp_task and not _mcp_task.done():
+            _mcp_task.cancel()
+            try:
+                await _mcp_task
+            except asyncio.CancelledError:
+                pass
+
         from app.infrastructure.database.engine import dispose_engine
         from app.infrastructure.cache.redis_client import dispose_redis
 

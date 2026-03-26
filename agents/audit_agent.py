@@ -120,7 +120,7 @@ class AuditWriter:
         event_type = event.get("type", "unknown")
         payload_str = json.dumps(event.get("payload", {}))
 
-        conn = await asyncpg.connect(db_url)
+        conn = await asyncpg.connect(db_url, statement_cache_size=0)
         try:
             # ORPHAN GUARD — check email exists before inserting audit record
             # Prevents infinite retry loop when email row was never committed or was cleaned up

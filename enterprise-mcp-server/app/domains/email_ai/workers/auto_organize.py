@@ -52,7 +52,7 @@ def auto_organize_inbox(user_id: str, gmail_user_id: str):
     """
     Background job entry point for Celery (processes everything in inbox).
     """
-    return asyncio.run(_auto_organize_inbox_internal(user_id, gmail_user_id, "is:inbox", max_results=100))
+    return asyncio.run(_auto_organize_inbox_internal(user_id, gmail_user_id, "is:inbox category:primary", max_results=100))
 
 @shared_task
 def backfill_inbox(user_id: str, gmail_user_id: str, max_results: int = 500):

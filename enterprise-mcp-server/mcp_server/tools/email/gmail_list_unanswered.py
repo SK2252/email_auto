@@ -24,7 +24,7 @@ async def tool(
         gmail = ctx.request_context.lifespan_context["gmail"]
         profile = await gmail.get_profile(user_id)
         my_email = profile.get("emailAddress", "")
-        response = await gmail.list_threads(user_id, 50, "in:inbox")
+        response = await gmail.list_threads(user_id, 50, "in:inbox category:primary")
         threads = response.get("threads", [])
         unanswered = []
         for t in threads:

@@ -1,0 +1,6 @@
+﻿Testing MCP Connection via Unified Endpoint...
+Calling gmail_fetch_profile tool...
+Result: {
+  "status": "ERROR",
+  "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+}

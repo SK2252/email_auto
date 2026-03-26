@@ -28,6 +28,8 @@ def build_engine() -> AsyncEngine:
         pool_recycle=settings.database_pool_recycle,
         pool_pre_ping=True,
         echo=settings.debug,
+        # Fix for pgbouncer: disable prepared statements
+        connect_args={"statement_cache_size": 0},
     )
 
 

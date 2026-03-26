@@ -43,7 +43,7 @@ mcp = FastMCP(
     json_response=False,         # SSE streaming — standard MCP wire format
     host="0.0.0.0",              # bind to all interfaces
     port=9000,                   # default port (overridden by MCP_PORT env var)
-    streamable_http_path="/mcp", # endpoint path
+    streamable_http_path="/",    # endpoint path (mounted at /mcp in app/api/main.py)
 )
 
 # ---------------------------------------------------------------------------

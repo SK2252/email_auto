@@ -396,7 +396,7 @@ async def _update_db_async(email_id: str, draft: Optional[str], pii_scan_result:
     import asyncpg
     db_url = getattr(settings, "DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
     try:
-        conn = await asyncpg.connect(db_url)
+        conn = await asyncpg.connect(db_url, statement_cache_size=0)
         try:
             await conn.execute(
                 """

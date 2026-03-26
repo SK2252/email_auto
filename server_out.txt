@@ -1,0 +1,93 @@
+Starting Enterprise MCP Server on http://localhost:9000
+API Docs: http://localhost:9000/docs
+d:\email_auto\.venv\lib\site-packages\google\api_core\_python_version_support.py:275: FutureWarning: You are using a Python version (3.10.11) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+2026-03-26 12:48:17 [info     ] Enterprise MCP Server initialised document_tools=5 email_tools=19 filesystem_tools=5 job_tools=2 total_tools=31
+{"level": "info", "timestamp": "2026-03-26T07:18:17.828975Z", "message": "Mounting Enterprise MCP Server at /mcp"}
+INFO:     Started server process [30600]
+INFO:     Waiting for application startup.
+{"error": "(sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.DuplicatePreparedStatementError'>: prepared statement \"__asyncpg_stmt_1__\" already exists\nHINT:  \nNOTE: pgbouncer with pool_mode set to \"transaction\" or\n\"statement\" does not support prepared statements properly.\nYou have two options:\n\n* if you are using pgbouncer for connection pooling to a\n  single server, switch to the connection pool functionality\n  provided by asyncpg, it is a much better option for this\n  purpose;\n\n* if you have no option of avoiding the use of pgbouncer,\n  then you can set statement_cache_size to 0 when creating\n  the asyncpg connection object.\n\n[SQL: select pg_catalog.version()]\n(Background on this error at: https://sqlalche.me/e/20/f405)", "level": "warning", "timestamp": "2026-03-26T07:18:19.385274Z", "message": "PostgreSQL health check failed"}
+{"status": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:19.385274Z", "message": "Database health check"}
+{"error": "Error 22 connecting to localhost:6379. The remote computer refused the network connection.", "level": "warning", "timestamp": "2026-03-26T07:18:23.452510Z", "message": "Redis unavailable \u2014 rate limiting will use in-memory fallback"}
+{"status": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:23.452510Z", "message": "Redis health check"}
+{"version": "1.0.0", "environment": "development", "host": "0.0.0.0", "port": 9000, "database": "unavailable", "redis": "unavailable", "level": "info", "timestamp": "2026-03-26T07:18:23.452510Z", "message": "Enterprise MCP Server started"}
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 9000): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+{"level": "info", "timestamp": "2026-03-26T07:18:23.455331Z", "message": "Database engine disposed"}
+{"level": "info", "timestamp": "2026-03-26T07:18:23.455331Z", "message": "Redis connection pool disposed"}
+{"level": "info", "timestamp": "2026-03-26T07:18:23.455331Z", "message": "Enterprise MCP Server shut down"}
+INFO:     Application shutdown complete.
+[03/26/26 12:48:23] ERROR    Fatal error on SSL transport   base_events.py:1758
+                             protocol:                                         
+                             <asyncio.sslproto.SSLProtocol                     
+                             object at 0x000002142D04B640>                     
+                             transport:                                        
+                             <_ProactorSocketTransport                         
+                             fd=-1 read=<_OverlappedFuture                     
+                             cancelled>>                                       
+                             +- Traceback (most recent ca-+                    
+                             | C:\Users\Dell\AppData\Loca |                    
+                             | l\Programs\Python\Python31 |                    
+                             | 0\lib\asyncio\sslproto.py: |                    
+                             | 690 in                     |                    
+                             | _process_write_backlog     |                    
+                             |                            |                    
+                             |   687                      |                    
+                             |   688                      |                    
+                             |   689                 for  |                    
+                             | > 690                      |                    
+                             |   691                      |                    
+                             |   692                 if o |                    
+                             |   693                      |                    
+                             |                            |                    
+                             | C:\Users\Dell\AppData\Loca |                    
+                             | l\Programs\Python\Python31 |                    
+                             | 0\lib\asyncio\proactor_eve |                    
+                             | nts.py:365 in write        |                    
+                             |                            |                    
+                             |   362         if self._wri |                    
+                             |   363             assert s |                    
+                             |   364             # Pass a |                    
+                             | > 365             self._lo |                    
+                             |   366         elif not sel |                    
+                             |   367             # Make a |                    
+                             |   368             self._bu |                    
+                             |                            |                    
+                             | C:\Users\Dell\AppData\Loca |                    
+                             | l\Programs\Python\Python31 |                    
+                             | 0\lib\asyncio\proactor_eve |                    
+                             | nts.py:401 in              |                    
+                             | _loop_writing              |                    
+                             |                            |                    
+                             |   398                 # pr |                    
+                             |   399                 self |                    
+                             |   400             else:    |                    
+                             | > 401                 self |                    
+                             |   402                 if n |                    
+                             |   403                      |                    
+                             |   404                      |                    
+                             +----------------------------+                    
+                             AttributeError: 'NoneType'                        
+                             object has no attribute 'send'                    
+Exception ignored in: <function _SSLProtocolTransport.__del__ at 0x0000021427998AF0>
+Traceback (most recent call last):
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 321, in __del__
+    self.close()
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 316, in close
+    self._ssl_protocol._start_shutdown()
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 599, in _start_shutdown
+    self._write_appdata(b'')
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 604, in _write_appdata
+    self._process_write_backlog()
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 712, in _process_write_backlog
+    self._fatal_error(exc, 'Fatal error on SSL transport')
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\sslproto.py", line 726, in _fatal_error
+    self._transport._force_close(exc)
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\proactor_events.py", line 152, in _force_close
+    self._loop.call_soon(self._call_connection_lost, exc)
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 753, in call_soon
+    self._check_closed()
+  File "C:\Users\Dell\AppData\Local\Programs\Python\Python310\lib\asyncio\base_events.py", line 515, in _check_closed
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed

@@ -499,9 +499,7 @@ async def gmail_list_unanswered(
 
         # Get recent inbox threads
         response = execute_gmail_api(
-            service.users().threads().list(
-                userId=user_id, maxResults=50, q="in:inbox"
-            )
+                userId=user_id, maxResults=50, q="in:inbox category:primary"
         )
         threads = response.get("threads", [])
 
