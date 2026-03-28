@@ -8,6 +8,7 @@ import SettingsModal from './components/SettingsModal';
 import EmailInbox from './pages/EmailInbox';
 import Dashboard from './pages/Dashboard';
 import MLflowPage from './pages/MLflowPage';
+import RulesEngine from './pages/RulesEngine';
 import { ChatSession, Message, ThemeConfig } from './types';
 import { APP_NAME, FONTS } from './constants';
 import { v4 as uuidv4 } from 'uuid';
@@ -50,7 +51,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('yakkay_theme', JSON.stringify(theme));
-    
+
     // Apply dark mode class to html element
     if (theme.isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -172,6 +173,10 @@ const AppContent: React.FC<any> = ({
           <Route
             path="/mlflow"
             element={<MLflowPage />}
+          />
+          <Route
+            path="/rules"
+            element={<RulesEngine />}
           />
         </Routes>
       </main>

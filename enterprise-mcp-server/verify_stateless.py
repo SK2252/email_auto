@@ -16,7 +16,7 @@ async def main():
                 "id": 1
             }
             response = await client.post(
-                "http://localhost:9000/mcp",
+                "http://localhost:9000/mcp/",
                 json=list_data,
                 headers=headers,
                 timeout=10.0

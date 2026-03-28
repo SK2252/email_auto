@@ -99,6 +99,9 @@ def create_app() -> FastAPI:
     app.include_router(gmail_extension_router)
     app.include_router(mlflow_router)
 
+    from app.api.routers.v1.rules import router as rules_router
+    app.include_router(rules_router, prefix="/api/v1")
+
     # --- 4.5 Mount MCP Server ---
     if mcp_app:
         logger.info("Mounting Enterprise MCP Server at /mcp")

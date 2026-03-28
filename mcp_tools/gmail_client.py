@@ -13,7 +13,7 @@ class GmailClient:
     Provides a consistent interface for agents to interact with Gmail.
     """
 
-    def __init__(self, server_url: str = "http://localhost:9000/mcp"):
+    def __init__(self, server_url: str = "http://localhost:9000/mcp/"):
         self.server_url = server_url
 
     async def _call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:

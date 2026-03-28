@@ -84,9 +84,11 @@ async def lifespan(server) -> AsyncIterator[dict]:
         # DO NOT use server.state.gmail = gmail — FastMCP has no .state.
         # ----------------------------------------------------------------
         yield {
-            "gmail": gmail,
-            "engine": engine,
-            "redis": redis_client,
+            "gmail":   gmail,
+            "engine":  engine,
+            "redis":   redis_client,
+            "_redis":  redis_client,
+            "_engine": engine,
         }
     finally:
         logger.info("MCP Server lifespan shutdown — disposing clients")

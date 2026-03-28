@@ -15,17 +15,19 @@ interface Stats {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  it_support:       'bg-violet-500',
-  hr:               'bg-emerald-500',
+  it_support: 'bg-violet-500',
+  hr: 'bg-emerald-500',
   customer_support: 'bg-amber-500',
-  others:           'bg-slate-400',
+  others: 'bg-slate-400',
 };
 
 const Dashboard: React.FC = () => {
-  const [stats,       setStats]       = useState<Stats | null>(null);
-  const [mcpOk,       setMcpOk]       = useState<boolean | null>(null);
-  const [loading,     setLoading]     = useState(true);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [mcpOk, setMcpOk] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [rulesCount, setRulesCount] = useState(0);
+  const [rulesVersion, setRulesVersion] = useState(0);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -43,7 +45,7 @@ const Dashboard: React.FC = () => {
 
       const by_category: Record<string, number> = {};
       let human_review = 0;
-      let escalated    = 0;
+      let escalated = 0;
 
       msgs.forEach((m: any) => {
         const nested = (m.labelIds ?? []).find((l: string) => l.includes('/'));
@@ -55,13 +57,13 @@ const Dashboard: React.FC = () => {
       });
 
       setStats({
-        total:          msgs.length,
-        processed:      msgs.length - human_review,
+        total: msgs.length,
+        processed: msgs.length - human_review,
         human_review,
         escalated,
         avg_confidence: 0.82,
         by_category,
-        last_poll:      new Date().toLocaleTimeString(),
+        last_poll: new Date().toLocaleTimeString(),
       });
     } catch (e) {
       console.error(e);
@@ -73,6 +75,16 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => { fetchStats(); }, []);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/v1/rules/default')
+      .then(r => r.json())
+      .then(d => {
+        setRulesCount((d.rules || []).length);
+        setRulesVersion(d.version || 0);
+      })
+      .catch(() => {});
+  }, []);
 
   const MetricCard = ({ icon: Icon, label, value, sub, color }: { icon: React.ElementType; label: string; value: string | number; sub?: string; color: string }) => (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
@@ -142,10 +154,29 @@ const Dashboard: React.FC = () => {
           <>
             {/* Metric Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <MetricCard icon={Mail}         label="Total Processed"   value={stats?.total ?? 0}          color="bg-blue-600"    />
-              <MetricCard icon={CheckCircle}  label="Auto Labeled"      value={stats?.processed ?? 0}      color="bg-emerald-500" sub="confidence ≥ 0.7" />
-              <MetricCard icon={Clock}        label="Human Review"      value={stats?.human_review ?? 0}   color="bg-amber-500"   sub="confidence < 0.7" />
-              <MetricCard icon={AlertTriangle}label="Escalated"         value={stats?.escalated ?? 0}      color="bg-red-500"     sub="sentiment < -0.5" />
+              <MetricCard icon={Mail} label="Total Processed" value={stats?.total ?? 0} color="bg-blue-600" />
+              <MetricCard icon={CheckCircle} label="Auto Labeled" value={stats?.processed ?? 0} color="bg-emerald-500" sub="confidence ≥ 0.7" />
+              <MetricCard icon={Clock} label="Human Review" value={stats?.human_review ?? 0} color="bg-amber-500" sub="confidence < 0.7" />
+              <MetricCard icon={AlertTriangle} label="Escalated" value={stats?.escalated ?? 0} color="bg-red-500" sub="sentiment < -0.5" />
+            </div>
+
+            {/* Rules Engine Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow mb-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Rules engine</p>
+                  <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{rulesCount}</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                    active rules · v{rulesVersion}
+                  </p>
+                </div>
+                <a
+                  href="#/rules"
+                  className="px-3 py-1.5 text-xs font-bold text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                >
+                  Manage rules →
+                </a>
+              </div>
             </div>
 
             {/* Category Breakdown */}
@@ -162,7 +193,7 @@ const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {Object.entries(stats?.by_category ?? {}).sort(([,a],[,b]) => b - a).map(([cat, count]) => (
+                  {Object.entries(stats?.by_category ?? {}).sort(([, a], [, b]) => b - a).map(([cat, count]) => (
                     <div key={cat} className="flex items-center gap-3">
                       <div className="w-24 text-xs font-bold text-slate-600 dark:text-slate-400 capitalize">{cat.replace('_', ' ')}</div>
                       <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">

@@ -164,3 +164,26 @@ DROP TRIGGER IF EXISTS trg_emails_updated_at ON emails;
 CREATE TRIGGER trg_emails_updated_at
     BEFORE UPDATE ON emails
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- =========================================================
+-- Rules engine: versioned routing rules per tenant
+-- =========================================================
+CREATE TABLE IF NOT EXISTS rules_versions (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id   VARCHAR(100) NOT NULL DEFAULT 'default',
+    version     INTEGER      NOT NULL DEFAULT 1,
+    rules_json  JSONB        NOT NULL DEFAULT '[]',
+    created_by  VARCHAR(100),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    is_active   BOOLEAN      NOT NULL DEFAULT FALSE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rules_one_active_per_tenant
+    ON rules_versions (tenant_id) WHERE is_active = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_rules_tenant_version
+    ON rules_versions (tenant_id, version DESC);
+
+INSERT INTO rules_versions (tenant_id, version, rules_json, created_by, is_active)
+VALUES ('default', 1, '[]', 'system', TRUE)
+ON CONFLICT DO NOTHING;

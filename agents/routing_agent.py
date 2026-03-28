@@ -489,7 +489,7 @@ def _write_routing_to_db(
 # ---------------------------------------------------------------------------
 
 @instrument_agent("AG-03")
-def routing_node(state: AgentState) -> Dict[str, Any]:
+async def routing_node(state: AgentState) -> Dict[str, Any]:
     """
     LangGraph node for AG-03.
 
@@ -521,9 +521,101 @@ def routing_node(state: AgentState) -> Dict[str, Any]:
     }))
 
     # =========================================================================
+    # STEP 0.5 — Dynamic rules engine (injected before Step 1)
+    # Transparent when rules_versions table is empty or Redis has no key.
+    # =========================================================================
+    from utils.rules_engine import evaluate as _rules_engine_evaluate
+
+    _lifespan      = state.get("lifespan_context") or {}
+    _redis_client  = _lifespan.get("_redis")  or state.get("_redis")
+    _engine_client = _lifespan.get("_engine") or state.get("_engine")
+
+    _rules_result = None
+    if _redis_client and _engine_client:
+        try:
+            _rules_context = {
+                "category":       category,
+                "priority":       priority,
+                "confidence":     classification.get("confidence", 1.0),
+                "sentiment_score":classification.get("sentiment_score", 0.0),
+                "domain_id":      (domain_config or {}).get("domain_id", "unknown"),
+                "sender":         parsed.get("sender", ""),
+                "subject":        parsed.get("subject", ""),
+            }
+            _rules_result = await _rules_engine_evaluate(
+                context=_rules_context,
+                tenant_id=tenant_id,
+                redis=_redis_client,
+                engine=_engine_client,
+            )
+        except Exception as _re:
+            logger.warning(json.dumps({
+                "event":    "rules_engine_error_skipped",
+                "error":    str(_re),
+                "email_id": email_id,
+            }))
+            _rules_result = None
+
+    if _rules_result:
+        _re_team = None
+        _re_sla  = None
+        _re_hold = False
+
+        for _action in _rules_result["actions"]:
+            _act = _action.get("action")
+            _val = _action.get("value")
+            match _act:
+                case "route_to":
+                    _re_team = _val
+                case "apply_label":
+                    _re_team = _val
+                case "set_sla":
+                    _re_sla = _val
+                    state = {**state, "sla_bucket": _val}
+                case "hold_for_review":
+                    _re_hold = True
+                    state = {**state, "human_review": True}
+                case "notify_slack":
+                    logger.info(json.dumps({
+                        "event":    "rules_engine_slack_notify",
+                        "channel":  _val,
+                        "email_id": email_id,
+                    }))
+                case "send_ack":
+                    state = {**state, "send_ack_template": _val}
+                case "notify_email":
+                    logger.info(json.dumps({
+                        "event":    "rules_engine_email_notify",
+                        "to":       _val,
+                        "email_id": email_id,
+                    }))
+
+        if _re_team or _re_hold:
+            _final_team = _re_team or "Others/Uncategorised"
+            route_info = {
+                "team":               _final_team,
+                "ticket_system":      None,
+                "team_lead_required": False,
+                "source":             "rules_engine",
+                "reason":             f"Rules engine: {_rules_result['rule_name']}",
+            }
+            logger.info(json.dumps({
+                "event":    "rules_engine_route_applied",
+                "rule":     _rules_result["rule_name"],
+                "team":     _final_team,
+                "sla":      _re_sla,
+                "hold":     _re_hold,
+                "email_id": email_id,
+            }))
+        else:
+            _rules_result = None
+
+    # =========================================================================
     # STEP 1 — Rule-based matrix (deterministic, no retry)
     # =========================================================================
-    route_info = _rule_based_route(category, domain_config)
+    # Step 1 — static matrix (only runs if rules engine returned nothing)
+    if not _rules_result:
+        route_info = _rule_based_route(category, domain_config)
 
     if route_info:
         logger.info(json.dumps({

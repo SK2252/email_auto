@@ -4,7 +4,7 @@ import {
   MessageSquare, Plus, Settings, Trash2, Palette, Mail,
   LayoutDashboard, CreditCard, Monitor, Users, AlertTriangle,
   HelpCircle, TrendingUp, ShieldAlert, ChevronDown, ChevronRight as ChevronExpand,
-  Activity,
+  Activity, Filter,
 } from 'lucide-react';
 import { ChatSession } from '../types';
 import { APP_NAME } from '../constants';
@@ -19,23 +19,24 @@ interface SidebarProps {
 }
 
 const LABEL_TREE = [
-  { key: 'IT Support', label: 'IT Support',  Icon: Monitor,       color: { parent:'text-violet-600', activeBg:'bg-violet-50', dot:'bg-violet-500' }, children:[{key:'IT Support/Network Ops Team',label:'Network Ops',dot:'bg-violet-400'},{key:'IT Support/Security Team',label:'Security',dot:'bg-violet-600'},{key:'IT Support/General IT Queue',label:'General IT',dot:'bg-violet-300'}] },
-  { key: 'HR',         label: 'HR',           Icon: Users,         color: { parent:'text-emerald-600',activeBg:'bg-emerald-50',dot:'bg-emerald-500'}, children:[{key:'HR/HR Operations',label:'Operations',dot:'bg-emerald-600'},{key:'HR/Payroll Team',label:'Payroll',dot:'bg-emerald-400'},{key:'HR/Recruitment Team',label:'Recruitment',dot:'bg-emerald-300'},{key:'HR/Employee Relations',label:'Relations',dot:'bg-emerald-700'}] },
-  { key: 'Customer Support', label: 'Customer', Icon: HelpCircle, color: { parent:'text-amber-600', activeBg:'bg-amber-50', dot:'bg-amber-500' }, children:[{key:'Customer Support/Customer Issues',label:'Issues',dot:'bg-amber-600'},{key:'Customer Support/Product Support',label:'Product Support',dot:'bg-amber-400'},{key:'Customer Support/Warranty',label:'Warranty',dot:'bg-amber-300'}] },
-  { key: 'Others',     label: 'Others',       Icon: ShieldAlert, color: { parent:'text-slate-600',  activeBg:'bg-slate-100', dot:'bg-slate-400'  }, children:[{key:'Others/Uncategorised',label:'Uncategorised',dot:'bg-slate-500'}] },
+  { key: 'IT Support', label: 'IT Support', Icon: Monitor, color: { parent: 'text-violet-600', activeBg: 'bg-violet-50', dot: 'bg-violet-500' }, children: [{ key: 'IT Support/Network Ops Team', label: 'Network Ops', dot: 'bg-violet-400' }, { key: 'IT Support/Security Team', label: 'Security', dot: 'bg-violet-600' }, { key: 'IT Support/General IT Queue', label: 'General IT', dot: 'bg-violet-300' }] },
+  { key: 'HR', label: 'HR', Icon: Users, color: { parent: 'text-emerald-600', activeBg: 'bg-emerald-50', dot: 'bg-emerald-500' }, children: [{ key: 'HR/HR Operations', label: 'Operations', dot: 'bg-emerald-600' }, { key: 'HR/Payroll Team', label: 'Payroll', dot: 'bg-emerald-400' }, { key: 'HR/Recruitment Team', label: 'Recruitment', dot: 'bg-emerald-300' }, { key: 'HR/Employee Relations', label: 'Relations', dot: 'bg-emerald-700' }] },
+  { key: 'Customer Support', label: 'Customer', Icon: HelpCircle, color: { parent: 'text-amber-600', activeBg: 'bg-amber-50', dot: 'bg-amber-500' }, children: [{ key: 'Customer Support/Customer Issues', label: 'Issues', dot: 'bg-amber-600' }, { key: 'Customer Support/Product Support', label: 'Product Support', dot: 'bg-amber-400' }, { key: 'Customer Support/Warranty', label: 'Warranty', dot: 'bg-amber-300' }] },
+  { key: 'Others', label: 'Others', Icon: ShieldAlert, color: { parent: 'text-slate-600', activeBg: 'bg-slate-100', dot: 'bg-slate-400' }, children: [{ key: 'Others/Uncategorised', label: 'Uncategorised', dot: 'bg-slate-500' }] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectSession, onNewChat, onDeleteSession, onOpenSettings }) => {
-  const navigate   = useNavigate();
-  const location   = useLocation();
-  const [expanded, setExpanded] = useState<Record<string,boolean>>({});
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pipelineOk, setPipelineOk] = useState<boolean | null>(null);
 
-  const isTheme    = location.pathname === '/theme';
-  const isInbox    = location.pathname === '/inbox';
-  const isDash     = location.pathname === '/dashboard' || location.pathname === '/';
-  const isMlflow   = location.pathname === '/mlflow';
-  const isNewChat  = location.pathname === '/chat/new';
+  const isTheme = location.pathname === '/theme';
+  const isInbox = location.pathname === '/inbox';
+  const isDash = location.pathname === '/dashboard' || location.pathname === '/';
+  const isMlflow = location.pathname === '/mlflow';
+  const isRules = location.pathname === '/rules';
+  const isNewChat = location.pathname === '/chat/new';
   const currentLabel = new URLSearchParams(location.search).get('label') ?? '';
 
   useEffect(() => {
@@ -79,6 +80,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectS
         <button onClick={() => navigate('/mlflow')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isMlflow ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
           <Activity size={18} /> MLflow LLMOps
         </button>
+        <button onClick={() => navigate('/rules')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isRules ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+          <Filter size={18} /> Rules engine
+        </button>
         <button onClick={() => navigate('/theme')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isTheme ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>
           <Palette size={18} /> Theme &amp; Fonts
         </button>
@@ -90,8 +94,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sessions, currentSessionId, onSelectS
         <div className="space-y-0.5">
           {LABEL_TREE.map(cat => {
             const { Icon, color } = cat;
-            const isOpen          = !!expanded[cat.key];
-            const isParentActive  = currentLabel.startsWith(cat.label);
+            const isOpen = !!expanded[cat.key];
+            const isParentActive = currentLabel.startsWith(cat.label);
             return (
               <div key={cat.key}>
                 <button onClick={() => toggle(cat.key)} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-bold transition-all ${isParentActive ? `${color.activeBg} dark:bg-slate-800/50 ${color.parent}` : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'}`}>

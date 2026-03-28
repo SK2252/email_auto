@@ -82,7 +82,7 @@ python start_mlflow.py
 ### 6. MCP Inspector (Debugging)
 Inspect and test the 31 MCP tools:
 ```bash
-npx @modelcontextprotocol/inspector http://localhost:9000/mcp
+npx @modelcontextprotocol/inspector http://localhost:9000/mcp/
 ```
 
 ---
